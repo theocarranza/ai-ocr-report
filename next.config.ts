@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   // as we are attempting a manual i18next setup.
   // This might have been conflicting.
   experimental: {
-    allowedDevOrigins: ["*.cloudworkstations.dev"],
+    // allowedDevOrigins: ["*.cloudworkstations.dev"], // Removed this line
   }
 };
 
