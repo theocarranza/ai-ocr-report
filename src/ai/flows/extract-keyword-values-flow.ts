@@ -17,11 +17,16 @@ const ExtractKeywordValuesInputSchema = z.object({
 });
 export type ExtractKeywordValuesInput = z.infer<typeof ExtractKeywordValuesInputSchema>;
 
+const KeywordValuePairSchema = z.object({
+  keyword: z.string().describe("One of the keywords provided in the input."),
+  value: z.string().describe("The extracted information from the text corresponding to the keyword.")
+});
+
 const ExtractKeywordValuesOutputSchema = z.object({
-  keyValuePairs: z
-    .array(z.record(z.string(), z.string()))
+  extractedValues: z
+    .array(KeywordValuePairSchema)
     .describe(
-      'An array of objects, where each object represents a single keyword-value pair. The key is one of the input keywords, and the value is the information extracted from the text corresponding to that keyword.'
+      'An array of objects, where each object contains a "keyword" and its corresponding "value" extracted from the document text.'
     ),
 });
 export type ExtractKeywordValuesOutput = z.infer<typeof ExtractKeywordValuesOutputSchema>;
@@ -35,8 +40,10 @@ const extractKeywordValuesPrompt = ai.definePrompt({
   input: {schema: ExtractKeywordValuesInputSchema},
   output: {schema: ExtractKeywordValuesOutputSchema},
   prompt: `Given the document text and a list of keywords, extract the specific information (value) from the text that corresponds to each keyword.
-For each keyword, if relevant information is found, create an object with the keyword as the key and the extracted information as its value.
-Return an array of these objects. Each object in the array must contain only a single key-value pair.
+For each keyword from the input list, if relevant information is found in the document text, create an object with two properties:
+1. "keyword": This should be the keyword itself (from the input list).
+2. "value": This should be the specific information (value) extracted from the text that corresponds to this keyword.
+Return an array of these objects.
 If a keyword appears multiple times with different associated values, create separate objects for each instance.
 If no information is found for a keyword, do not include an entry for it in the array.
 
@@ -45,7 +52,12 @@ Keywords: {{#each keywords}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 Document Text:
 {{{documentText}}}
 
-Respond with ONLY the JSON array of key-value pairs as described.
+Respond with ONLY the JSON array of objects, where each object has a "keyword" field and a "value" field, as described.
+Example for keywords "name", "date":
+[
+  { "keyword": "name", "value": "Extracted Name" },
+  { "keyword": "date", "value": "Extracted Date" }
+]
 `,
 });
 
@@ -57,9 +69,9 @@ const extractKeywordValuesFlow = ai.defineFlow(
   },
   async input => {
     if (input.keywords.length === 0) {
-      return { keyValuePairs: [] };
+      return { extractedValues: [] };
     }
     const {output} = await extractKeywordValuesPrompt(input);
-    return output || { keyValuePairs: [] };
+    return output || { extractedValues: [] };
   }
 );

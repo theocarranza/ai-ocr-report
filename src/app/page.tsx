@@ -166,7 +166,7 @@ export default function Home() {
         const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
         setKeywordValueMapResult(keywordValuesOutput);
       } else {
-        setKeywordValueMapResult({ keyValuePairs: [] });
+        setKeywordValueMapResult({ extractedValues: [] });
       }
       
 
@@ -252,7 +252,7 @@ export default function Home() {
             <ResultsDisplay 
               summary={summaryResult}
               enrichedKeywords={enrichedKeywordsResult}
-              keywordValueMap={keywordValueMapResult?.keyValuePairs}
+              keywordValueMap={keywordValueMapResult?.extractedValues}
               userKeywords={userKeywordsArray}
               foundKeywordsInText={foundKeywordsInText}
               fullExtractedText={finalProcessedText}

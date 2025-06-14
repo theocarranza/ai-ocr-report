@@ -13,7 +13,7 @@ import type { EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
 interface ResultsDisplayProps {
   summary: SummarizeFileContentOutput | null;
   enrichedKeywords: EnrichKeywordsOutput | null;
-  keywordValueMap?: Array<Record<string, string>> | null;
+  keywordValueMap?: Array<{ keyword: string; value: string }> | null;
   userKeywords: string[];
   foundKeywordsInText: string[];
   fullExtractedText: string;
@@ -34,7 +34,7 @@ export function ResultsDisplay({
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const fullExtractedTextArray = fullExtractedText.split('\n').filter(line => line.trim() !== '');
+  const fullExtractedTextArray = fullExtractedText.split('\\n').filter(line => line.trim() !== '');
 
   const generatedJson = {
     source,
@@ -131,16 +131,11 @@ export function ResultsDisplay({
             <h3 className="font-semibold text-lg flex items-center mb-2"><KeyRound className="mr-2 h-5 w-5 text-primary" />{t('keywordValueMapTitle')}</h3>
             <ScrollArea className="h-40 rounded-md border p-3 bg-muted/50">
               <ul className="list-disc list-inside pl-2 text-sm space-y-1">
-                {keywordValueMap.map((item, index) => {
-                  const entry = Object.entries(item)[0];
-                  if (!entry) return null;
-                  const [key, value] = entry;
-                  return (
-                    <li key={`${key}-${index}`}>
-                      <span className="font-medium">{key}:</span> {value}
+                {keywordValueMap.map((item, index) => (
+                    <li key={`${item.keyword}-${index}`}>
+                      <span className="font-medium">{item.keyword}:</span> {item.value}
                     </li>
-                  );
-                })}
+                  ))}
               </ul>
             </ScrollArea>
           </div>
