@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-// import { useTranslation } from 'react-i18next'; // Removed i18n
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
@@ -19,7 +19,7 @@ interface OcrFileData {
 }
 
 export default function Home() {
-  // const { t } = useTranslation(); // Removed i18n
+  const { t } = useTranslation();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]);
   const [manualText, setManualText] = useState<string>("");
@@ -47,8 +47,8 @@ export default function Home() {
     setInputSource("");
     setProcessedFileNames([]);
     toast({ 
-      title: "Inputs Cleared", // Hardcoded English
-      description: "All input fields and results have been reset." // Hardcoded English
+      title: t('toastInputsClearedTitle'),
+      description: t('toastInputsClearedDescription')
     });
   };
 
@@ -78,8 +78,8 @@ export default function Home() {
       currentInputSource = "file_upload";
       const ocrResultsFromFileUploads: OcrFileData[] = [];
       toast({ 
-        title: "Processing Files...", // Hardcoded English
-        description: `Attempting to extract text from ${selectedFiles.length} file(s). This may take a moment.` // Hardcoded English
+        title: t('toastProcessingFilesTitle'),
+        description: t('toastProcessingFilesDescription', { count: selectedFiles.length })
       });
       try {
         for (const file of selectedFiles) {
@@ -97,8 +97,8 @@ export default function Home() {
       } catch (ocrError) {
         console.error("OCR error:", ocrError);
         toast({
-          title: "OCR Error", // Hardcoded English
-          description: ocrError instanceof Error ? ocrError.message : "Failed to extract text from one or more files.", // Hardcoded English
+          title: t('toastOcrErrorTitle'),
+          description: ocrError instanceof Error ? ocrError.message : t('toastOcrErrorDescription'),
           variant: "destructive",
         });
         setProcessing(false);
@@ -118,8 +118,8 @@ export default function Home() {
 
     if (!combinedTextForProcessing) {
       toast({
-        title: "No Input Provided", // Hardcoded English
-        description: "Please upload image/PDF files or paste text to process.", // Hardcoded English
+        title: t('toastNoInputProvidedTitle'),
+        description: t('toastNoInputProvidedDescription'),
         variant: "destructive",
       });
       setProcessing(false);
@@ -128,8 +128,8 @@ export default function Home() {
 
     if (!keywords.trim()) {
       toast({
-        title: "No Keywords", // Hardcoded English
-        description: "Please enter some keywords to search for.", // Hardcoded English
+        title: t('toastNoKeywordsTitle'),
+        description: t('toastNoKeywordsDescription'),
         variant: "destructive",
       });
       setProcessing(false);
@@ -163,15 +163,15 @@ export default function Home() {
       setFoundKeywordsInText(foundKws);
       
       toast({
-        title: "Processing Complete", // Hardcoded English
-        description: "Insights have been generated.", // Hardcoded English
+        title: t('toastProcessingCompleteTitle'),
+        description: t('toastProcessingCompleteDescription'),
       });
 
     } catch (error) {
       console.error("Processing error (summary/enrichment):", error);
       toast({
-        title: "Insight Generation Error", // Hardcoded English
-        description: error instanceof Error ? error.message : "An unknown error occurred during insight generation.", // Hardcoded English
+        title: t('toastInsightGenerationErrorTitle'),
+        description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
         variant: "destructive",
       });
       setSummaryResult(null);
@@ -185,7 +185,6 @@ export default function Home() {
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedText !== "");
 
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 md:px-8 md:py-12">
@@ -194,10 +193,10 @@ export default function Home() {
             <FileType className="h-10 w-10 text-primary-foreground" />
           </div>
           <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
-            File Insights {/* Hardcoded English */}
+            {t('pageTitle')}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your images or PDFs, or paste text, define keywords, and let AI extract valuable information for you. {/* Hardcoded English */}
+            {t('pageSubtitle')}
           </p>
         </header>
 
@@ -221,11 +220,11 @@ export default function Home() {
             >
               {processing ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing... {/* Hardcoded English */}
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('processingButton')}
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-5 w-5" /> Generate Insights {/* Hardcoded English */}
+                  <Sparkles className="mr-2 h-5 w-5" /> {t('generateInsightsButton')}
                 </>
               )}
             </Button>
@@ -245,8 +244,7 @@ export default function Home() {
         </main>
         
         <footer className="mt-16 pt-8 border-t text-center text-muted-foreground text-sm">
-          {/* Hardcoded English, simplified */}
-          <p>&copy; {new Date().getFullYear()} File Insights. Powered by Next.js & GenAI.</p>
+          <p dangerouslySetInnerHTML={{ __html: t('footerText', { year: new Date().getFullYear() }) }} />
         </footer>
       </div>
     </div>

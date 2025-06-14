@@ -3,9 +3,8 @@
 
 import type { ReactNode } from 'react';
 import { createInstance, type i18n as I18nInstanceType } from 'i18next';
-import resourcesToBackend from 'i18next-resources-to-backend';
-// import { initReactI18next } from 'react-i18next/initReactI18next'; // No longer needed here
-import { getOptions } from './i18n/settings';
+// import resourcesToBackend from 'i18next-resources-to-backend'; // Removed
+import { getOptions, fallbackLng } from './i18n/settings';
 import ClientI18nProviderWrapper from './ClientI18nProviderWrapper';
 
 export async function initI18nextInstance(
@@ -13,15 +12,37 @@ export async function initI18nextInstance(
   ns: string | string[]
 ): Promise<I18nInstanceType> {
   const i18nInstance = createInstance();
+  const currentNamespace = Array.isArray(ns) ? ns[0] : ns; // Assuming single namespace 'common'
+
+  let loadedResources = {};
+  try {
+    // Manually and dynamically import the JSON file
+    // The path is relative to this file (src/app/TranslationProvider.tsx)
+    // So ../locales/ will point to src/locales/
+    const resourceModule = await import(`../locales/${locale}/${currentNamespace}.json`);
+    loadedResources = {
+      [locale]: {
+        // Use .default if the JSON module is wrapped, otherwise use the module itself
+        [currentNamespace]: resourceModule.default || resourceModule,
+      },
+    };
+  } catch (e) {
+    console.error(`Failed to load translation file for ${locale}/${currentNamespace}:`, e);
+    // Initialize with empty resources or a minimal fallback if loading fails
+    // This helps in diagnosing if the import path or file is the issue
+    loadedResources = {
+      [locale]: {
+        [currentNamespace]: { appTitle: "Error Loading Translations" },
+      },
+    };
+  }
+
   await i18nInstance
-    .use(
-      resourcesToBackend(
-        (language: string, namespace: string) =>
-          import(`../locales/${language}/${namespace}.json`)
-      )
-    )
-    // .use(initReactI18next) // Removed, I18nextProvider handles React integration
-    .init(getOptions(locale, ns));
+    // .use(resourcesToBackend(...)) // Removed
+    .init({
+      ...getOptions(locale, ns),
+      resources: loadedResources, // Pass the manually loaded resources
+    });
   return i18nInstance;
 }
 
@@ -36,7 +57,7 @@ export async function TranslationProvider({
 }: TranslationProviderProps) {
   const i18nInstance = await initI18nextInstance(
     locale,
-    getOptions().defaultNS || 'common' // Pass defaultNS or 'common'
+    getOptions(locale).defaultNS || 'common'
   );
 
   return (

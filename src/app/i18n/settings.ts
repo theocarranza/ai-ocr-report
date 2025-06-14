@@ -8,17 +8,20 @@ interface Options {
   ns?: string | string[];
   debug?: boolean;
   load?: 'all' | 'currentOnly' | 'languageOnly' | 'unspecific';
+  initImmediate?: boolean; // Added for explicit control
   // Add other i18next options as needed
   [key: string]: any;
 }
 
 export function getOptions(lng: string = fallbackLng, ns: string | string[] = defaultNS): Options {
   return {
-    debug: true, // Keep debug true for now to help with potential issues
+    debug: true, // Keep debug enabled to see i18next logs
     lng,
-    fallbackLng, // This is 'pt_br'
+    // fallbackLng: fallbackLng, // Removed from direct init options
     ns,
     defaultNS,
-    load: 'currentOnly', // Explicitly load only the current language
+    load: 'currentOnly', // Load only the current language
+    initImmediate: false, // Explicitly set to false
   };
 }
+
