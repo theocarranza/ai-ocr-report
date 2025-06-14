@@ -3,7 +3,7 @@
   "appTitle": "AI OCR Report",
   "appDescription": "Gere relatórios a partir de seus documentos usando OCR com IA.",
   "pageTitle": "Análise de Arquivos",
-  "pageSubtitle": "Faça upload de seus arquivos, cole texto, defina palavras-chave e deixe a IA gerar um relatório OCR.",
+  "pageSubtitle": "Faça upload de seus arquivos, cole texto, defina palavras-chave e deixe a IA gerar um relatório.",
   "generateInsightsButton": "Gerar Relatório",
   "processingButton": "Processando...",
   "footerText": "&copy; {{year}} AI OCR Report. Desenvolvido com Next.js & GenAI.",
@@ -62,4 +62,3 @@
   "chooseFilesButton": "Escolher Arquivos",
   "noFileChosenText": "Nenhum arquivo selecionado"
 }
-
