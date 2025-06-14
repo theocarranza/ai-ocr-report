@@ -1,7 +1,7 @@
 
 {
   "appTitle": "File Insights",
-  "appDescription": "Use File Insights para extrair informações e relatórios de seus arquivos.",
+  "appDescription": "Use File Insights para extrair relatórios de seus arquivos.",
   "pageTitle": "Análise de Arquivos",
   "pageSubtitle": "Faça upload de suas imagens ou PDFs, ou cole o texto, defina palavras-chave e deixe a IA extrair informações valiosas para você.",
   "generateInsightsButton": "Gerar Relatório",
@@ -58,5 +58,7 @@
   "toastJsonExportedTitle": "JSON Exportado",
   "toastJsonExportedDescription": "Os resultados foram baixados como um arquivo JSON.",
   "toastFeatureNotImplementedTitle": "Funcionalidade Não Implementada",
-  "toastFeatureNotImplementedDescription": "Salvar no Firebase não está implementado nesta Prova de Conceito."
+  "toastFeatureNotImplementedDescription": "Salvar no Firebase não está implementado nesta Prova de Conceito.",
+  "chooseFilesButton": "Escolher Arquivos",
+  "noFileChosenText": "Nenhum arquivo selecionado"
 }

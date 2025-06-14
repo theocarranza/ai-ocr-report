@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Label can be used for the main card, not the custom input label
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadCloud, FileText, XCircle } from 'lucide-react';
@@ -70,16 +70,30 @@ export function FileInputArea({
           </TabsList>
           <TabsContent value="file-upload">
             <div className="mt-4">
-              <Label htmlFor="file-upload-input" className="sr-only">{t('fileUploadLabel')}</Label>
               <Input 
                 id="file-upload-input" 
                 type="file" 
                 multiple 
                 accept="image/*,application/pdf"
                 onChange={handleFileChange} 
-                className="text-sm cursor-pointer file:mr-4 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                className="hidden" // Visually hide the actual file input
                 aria-describedby="file-upload-description"
               />
+              {/* Custom styled visible area */}
+              <div className="flex items-center h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <label
+                  htmlFor="file-upload-input"
+                  className="cursor-pointer mr-4 px-4 py-1.5 rounded-full text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap"
+                >
+                  {t('chooseFilesButton')}
+                </label>
+                <span className="text-muted-foreground truncate">
+                  {selectedFiles.length === 0
+                    ? t('noFileChosenText')
+                    : selectedFiles.map(f => f.name).join(', ')
+                  }
+                </span>
+              </div>
               <p id="file-upload-description" className="mt-1 text-sm text-muted-foreground">
                 {t('fileUploadDescription')}
               </p>
