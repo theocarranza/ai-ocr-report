@@ -2,7 +2,7 @@
 {
   "appTitle": "AI OCR Report",
   "appDescription": "Gere relatórios a partir de seus documentos usando OCR com IA.",
-  "pageTitle": "Relatório OCR com IA",
+  "pageTitle": "Análise de Arquivos",
   "pageSubtitle": "Faça upload de seus arquivos, cole texto, defina palavras-chave e deixe a IA gerar um relatório OCR.",
   "generateInsightsButton": "Gerar Relatório",
   "processingButton": "Processando...",
