@@ -49,6 +49,7 @@
   "noKeywordsFound": "Nenhuma das suas palavras-chave foi encontrada.",
   "suggestedKeywordsTitle": "Palavras-chave Sugeridas",
   "structuredJsonOutputTitle": "Saída JSON Estruturada",
+  "keywordValueMapTitle": "Valores Extraídos por Palavra-chave",
   "downloadJsonButton": "Baixar JSON",
   "saveToFirebaseButton": "Salvar no Firebase (Prova de Conceito)",
   "toastJsonExportedTitle": "JSON Exportado",

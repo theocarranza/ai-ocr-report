@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { summarizeFileContent, type SummarizeFileContentInput, type SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
 import { enrichKeywords, type EnrichKeywordsInput, type EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
 import { extractTextFromDocument, type ExtractTextFromDocumentInput, type ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
+import { extractKeywordValues, type ExtractKeywordValuesInput, type ExtractKeywordValuesOutput } from '@/ai/flows/extract-keyword-values-flow';
 import { Loader2, Sparkles, FileType } from 'lucide-react';
 
 interface OcrFileData {
@@ -28,6 +29,7 @@ export default function Home() {
   
   const [summaryResult, setSummaryResult] = useState<SummarizeFileContentOutput | null>(null);
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
+  const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null);
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
   const [finalProcessedText, setFinalProcessedText] = useState<string>("");
   const [inputSource, setInputSource] = useState<string>(""); 
@@ -42,6 +44,7 @@ export default function Home() {
     setKeywords("");
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
+    setKeywordValueMapResult(null);
     setFoundKeywordsInText([]);
     setFinalProcessedText("");
     setInputSource("");
@@ -65,6 +68,7 @@ export default function Home() {
     setProcessing(true);
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
+    setKeywordValueMapResult(null);
     setFoundKeywordsInText([]);
     setFinalProcessedText("");
     setOcrFileResults([]); 
@@ -141,17 +145,30 @@ export default function Home() {
     setProcessedFileNames(currentFileNamesProcessed);
 
     try {
+      const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
+
       const summaryInput: SummarizeFileContentInput = { fileText: combinedTextForProcessing };
       const summaryOutput = await summarizeFileContent(summaryInput);
       setSummaryResult(summaryOutput);
 
-      const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
       const enrichmentInput: EnrichKeywordsInput = { 
         documentContent: combinedTextForProcessing, 
         existingKeywords: userKeywordsArray 
       };
       const enrichmentOutput = await enrichKeywords(enrichmentInput);
       setEnrichedKeywordsResult(enrichmentOutput);
+
+      if (userKeywordsArray.length > 0) {
+        const keywordValuesInput: ExtractKeywordValuesInput = {
+          documentText: combinedTextForProcessing,
+          keywords: userKeywordsArray,
+        };
+        const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
+        setKeywordValueMapResult(keywordValuesOutput);
+      } else {
+        setKeywordValueMapResult({ keyValuePairs: [] });
+      }
+      
 
       const foundKws: string[] = [];
       const lowerCombinedText = combinedTextForProcessing.toLowerCase();
@@ -168,7 +185,7 @@ export default function Home() {
       });
 
     } catch (error) {
-      console.error("Processing error (summary/enrichment):", error);
+      console.error("Processing error (summary/enrichment/keyword-values):", error);
       toast({
         title: t('toastInsightGenerationErrorTitle'),
         description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
@@ -176,6 +193,7 @@ export default function Home() {
       });
       setSummaryResult(null);
       setEnrichedKeywordsResult(null);
+      setKeywordValueMapResult(null);
       setFoundKeywordsInText([]);
     } finally {
       setProcessing(false);
@@ -183,7 +201,7 @@ export default function Home() {
   };
 
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
-  const showResults = summaryResult || enrichedKeywordsResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedText !== "");
+  const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedText !== "");
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -234,6 +252,7 @@ export default function Home() {
             <ResultsDisplay 
               summary={summaryResult}
               enrichedKeywords={enrichedKeywordsResult}
+              keywordValueMap={keywordValueMapResult?.keyValuePairs}
               userKeywords={userKeywordsArray}
               foundKeywordsInText={foundKeywordsInText}
               fullExtractedText={finalProcessedText}

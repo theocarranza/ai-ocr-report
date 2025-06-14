@@ -4,7 +4,7 @@
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Database, CheckCircle, Info, ListChecks, FileJson, Search } from 'lucide-react';
+import { Download, Database, CheckCircle, Info, ListChecks, FileJson, Search, KeyRound } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
@@ -13,6 +13,7 @@ import type { EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
 interface ResultsDisplayProps {
   summary: SummarizeFileContentOutput | null;
   enrichedKeywords: EnrichKeywordsOutput | null;
+  keywordValueMap?: Array<Record<string, string>> | null;
   userKeywords: string[];
   foundKeywordsInText: string[];
   fullExtractedText: string;
@@ -22,7 +23,8 @@ interface ResultsDisplayProps {
 
 export function ResultsDisplay({ 
   summary, 
-  enrichedKeywords, 
+  enrichedKeywords,
+  keywordValueMap,
   userKeywords,
   foundKeywordsInText,
   fullExtractedText,
@@ -32,14 +34,17 @@ export function ResultsDisplay({
   const { t } = useTranslation();
   const { toast } = useToast();
 
+  const fullExtractedTextArray = fullExtractedText.split('\n').filter(line => line.trim() !== '');
+
   const generatedJson = {
     source,
     ...(filesProcessed && filesProcessed.length > 0 && { files_processed: filesProcessed }),
-    full_extracted_text: fullExtractedText,
+    full_extracted_text: fullExtractedTextArray,
     summary: summary?.summary || t('summaryNotAvailable'),
     user_keywords: userKeywords,
     keywords_found_in_text: foundKeywordsInText,
     suggested_keywords_for_enrichment: enrichedKeywords?.suggestedKeywords || [],
+    keyword_value_map: keywordValueMap || [],
   };
 
   const handleDownloadJson = () => {
@@ -117,6 +122,26 @@ export function ResultsDisplay({
                     <li key={keyword}>{keyword}</li>
                 ))}
                 </ul>
+            </ScrollArea>
+          </div>
+        )}
+
+        {keywordValueMap && keywordValueMap.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-lg flex items-center mb-2"><KeyRound className="mr-2 h-5 w-5 text-primary" />{t('keywordValueMapTitle')}</h3>
+            <ScrollArea className="h-40 rounded-md border p-3 bg-muted/50">
+              <ul className="list-disc list-inside pl-2 text-sm space-y-1">
+                {keywordValueMap.map((item, index) => {
+                  const entry = Object.entries(item)[0];
+                  if (!entry) return null;
+                  const [key, value] = entry;
+                  return (
+                    <li key={`${key}-${index}`}>
+                      <span className="font-medium">{key}:</span> {value}
+                    </li>
+                  );
+                })}
+              </ul>
             </ScrollArea>
           </div>
         )}
