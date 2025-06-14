@@ -9,11 +9,17 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
 import type { EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
+// No direct import for ExtractKeywordValuesOutput needed if we type the prop directly
+
+interface ExtractedKeywordEntry {
+  keyword: string;
+  foundValues: string[];
+}
 
 interface ResultsDisplayProps {
   summary: SummarizeFileContentOutput | null;
   enrichedKeywords: EnrichKeywordsOutput | null;
-  keywordValueMap?: Array<{ keyword: string; value: string }> | null;
+  extractedKeywordEntries?: ExtractedKeywordEntry[] | null; // Changed prop name and type
   userKeywords: string[];
   foundKeywordsInText: string[];
   fullExtractedText: string;
@@ -24,7 +30,7 @@ interface ResultsDisplayProps {
 export function ResultsDisplay({ 
   summary, 
   enrichedKeywords,
-  keywordValueMap,
+  extractedKeywordEntries, // Changed prop name
   userKeywords,
   foundKeywordsInText,
   fullExtractedText,
@@ -34,7 +40,12 @@ export function ResultsDisplay({
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const fullExtractedTextArray = fullExtractedText.split('\\n').filter(line => line.trim() !== '');
+  const fullExtractedTextArray = fullExtractedText.split('\n').filter(line => line.trim() !== '');
+
+  // Transform extractedKeywordEntries for the final JSON output
+  const transformedKeywordValueMap = extractedKeywordEntries
+    ? extractedKeywordEntries.map(entry => ({ [entry.keyword]: entry.foundValues }))
+    : [];
 
   const generatedJson = {
     source,
@@ -44,7 +55,7 @@ export function ResultsDisplay({
     user_keywords: userKeywords,
     keywords_found_in_text: foundKeywordsInText,
     suggested_keywords_for_enrichment: enrichedKeywords?.suggestedKeywords || [],
-    keyword_value_map: keywordValueMap || [],
+    keyword_value_map: transformedKeywordValueMap, // Use the transformed data
   };
 
   const handleDownloadJson = () => {
@@ -126,14 +137,23 @@ export function ResultsDisplay({
           </div>
         )}
 
-        {keywordValueMap && keywordValueMap.length > 0 && (
+        {extractedKeywordEntries && extractedKeywordEntries.length > 0 && (
           <div>
-            <h3 className="font-semibold text-lg flex items-center mb-2"><KeyRound className="mr-2 h-5 w-5 text-primary" />{t('keywordValueMapTitle')}</h3>
+            <h3 className="font-semibold text-lg flex items-center mb-2"><KeyRound className="mr-2 h-5 w-5 text-primary" />{t('keywordValuesExtractedTitle')}</h3>
             <ScrollArea className="h-40 rounded-md border p-3 bg-muted/50">
-              <ul className="list-disc list-inside pl-2 text-sm space-y-1">
-                {keywordValueMap.map((item, index) => (
-                    <li key={`${item.keyword}-${index}`}>
-                      <span className="font-medium">{item.keyword}:</span> {item.value}
+              <ul className="space-y-2">
+                {extractedKeywordEntries.map((entry, index) => (
+                    <li key={`${entry.keyword}-${index}`}>
+                      <span className="font-medium">{entry.keyword}:</span>
+                      {entry.foundValues.length > 0 ? (
+                        <ul className="list-disc list-inside pl-4 text-sm">
+                          {entry.foundValues.map((val, valIdx) => (
+                            <li key={valIdx}>{val}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground pl-4">{t('noValuesFoundForKeyword')}</p>
+                      )}
                     </li>
                   ))}
               </ul>
@@ -162,3 +182,4 @@ export function ResultsDisplay({
     </Card>
   );
 }
+

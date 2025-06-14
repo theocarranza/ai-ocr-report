@@ -49,7 +49,8 @@
   "noKeywordsFound": "Nenhuma das suas palavras-chave foi encontrada.",
   "suggestedKeywordsTitle": "Palavras-chave Sugeridas",
   "structuredJsonOutputTitle": "Saída JSON Estruturada",
-  "keywordValueMapTitle": "Valores Extraídos por Palavra-chave",
+  "keywordValuesExtractedTitle": "Valores Extraídos por Palavra-chave",
+  "noValuesFoundForKeyword": "Nenhum valor encontrado para esta palavra-chave.",
   "downloadJsonButton": "Baixar JSON",
   "saveToFirebaseButton": "Salvar no Firebase (Prova de Conceito)",
   "toastJsonExportedTitle": "JSON Exportado",
@@ -57,3 +58,4 @@
   "toastFeatureNotImplementedTitle": "Funcionalidade Não Implementada",
   "toastFeatureNotImplementedDescription": "Salvar no Firebase não está implementado nesta Prova de Conceito."
 }
+

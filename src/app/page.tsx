@@ -29,7 +29,7 @@ export default function Home() {
   
   const [summaryResult, setSummaryResult] = useState<SummarizeFileContentOutput | null>(null);
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
-  const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null);
+  const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); // This will hold { extractedKeywordEntries: [...] }
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
   const [finalProcessedText, setFinalProcessedText] = useState<string>("");
   const [inputSource, setInputSource] = useState<string>(""); 
@@ -164,9 +164,9 @@ export default function Home() {
           keywords: userKeywordsArray,
         };
         const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
-        setKeywordValueMapResult(keywordValuesOutput);
+        setKeywordValueMapResult(keywordValuesOutput); // Stores { extractedKeywordEntries: [...] }
       } else {
-        setKeywordValueMapResult({ extractedValues: [] });
+        setKeywordValueMapResult({ extractedKeywordEntries: [] });
       }
       
 
@@ -252,7 +252,7 @@ export default function Home() {
             <ResultsDisplay 
               summary={summaryResult}
               enrichedKeywords={enrichedKeywordsResult}
-              keywordValueMap={keywordValueMapResult?.extractedValues}
+              extractedKeywordEntries={keywordValueMapResult?.extractedKeywordEntries} // Pass the array of entries
               userKeywords={userKeywordsArray}
               foundKeywordsInText={foundKeywordsInText}
               fullExtractedText={finalProcessedText}
@@ -269,3 +269,4 @@ export default function Home() {
     </div>
   );
 }
+
