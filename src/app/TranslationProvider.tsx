@@ -3,16 +3,15 @@
 
 import type { ReactNode } from 'react';
 import { createInstance, type i18n as I18nInstanceType } from 'i18next';
-// import resourcesToBackend from 'i18next-resources-to-backend'; // Removed
-import { getOptions, fallbackLng } from './i18n/settings';
+import { getOptions } from './i18n/settings';
 import ClientI18nProviderWrapper from './ClientI18nProviderWrapper';
 
-export async function initI18nextInstance(
+export async function initI18nextServerInstance(
   locale: string,
   ns: string | string[]
 ): Promise<I18nInstanceType> {
   const i18nInstance = createInstance();
-  const currentNamespace = Array.isArray(ns) ? ns[0] : ns; // Assuming single namespace 'common'
+  const currentNamespace = Array.isArray(ns) ? ns[0] : ns;
 
   let loadedResources = {};
   try {
@@ -27,21 +26,20 @@ export async function initI18nextInstance(
       },
     };
   } catch (e) {
-    console.error(`Failed to load translation file for ${locale}/${currentNamespace}:`, e);
+    console.error(`Failed to load server translation file for ${locale}/${currentNamespace}:`, e);
     // Initialize with empty resources or a minimal fallback if loading fails
-    // This helps in diagnosing if the import path or file is the issue
     loadedResources = {
       [locale]: {
-        [currentNamespace]: { appTitle: "Error Loading Translations" },
+        [currentNamespace]: { appTitle: "Error Loading Server Translations" },
       },
     };
   }
 
   await i18nInstance
-    // .use(resourcesToBackend(...)) // Removed
     .init({
-      ...getOptions(locale, ns),
-      resources: loadedResources, // Pass the manually loaded resources
+      ...getOptions(locale, ns), // Common options: debug, ns, defaultNS, fallbackLng, load, initImmediate, react.useSuspense
+      lng: locale, // Explicitly set language
+      resources: loadedResources, // Provide resources for server-side rendering
     });
   return i18nInstance;
 }
@@ -55,13 +53,22 @@ export async function TranslationProvider({
   children,
   locale,
 }: TranslationProviderProps) {
-  const i18nInstance = await initI18nextInstance(
+  // Initialize i18next instance for server-side usage (e.g. if we needed to translate here)
+  const i18nServerInstance = await initI18nextServerInstance(
     locale,
     getOptions(locale).defaultNS || 'common'
   );
 
+  // Extract the necessary data for client-side hydration
+  // i18nServerInstance.store.data contains all loaded resources {lng: {ns: {key: value}}}
+  const initialI18nStore = i18nServerInstance.store.data; 
+  const initialLanguage = i18nServerInstance.language; // This should be the same as `locale`
+
   return (
-    <ClientI18nProviderWrapper i18n={i18nInstance}>
+    <ClientI18nProviderWrapper
+      locale={initialLanguage} 
+      initialI18nStore={initialI18nStore}
+    >
       {children}
     </ClientI18nProviderWrapper>
   );

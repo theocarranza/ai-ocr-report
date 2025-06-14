@@ -1,6 +1,6 @@
 
 export const fallbackLng = 'pt_br';
-export const languages = [fallbackLng];
+export const languages = [fallbackLng]; // Only 'pt_br'
 export const defaultNS = 'common';
 
 interface Options {
@@ -8,20 +8,25 @@ interface Options {
   ns?: string | string[];
   debug?: boolean;
   load?: 'all' | 'currentOnly' | 'languageOnly' | 'unspecific';
-  initImmediate?: boolean; // Added for explicit control
-  // Add other i18next options as needed
+  fallbackLng?: string | string[] | false; // Added false as an option
+  initImmediate?: boolean;
+  react?: {
+    useSuspense?: boolean;
+  };
   [key: string]: any;
 }
 
 export function getOptions(lng: string = fallbackLng, ns: string | string[] = defaultNS): Options {
   return {
-    debug: true, // Keep debug enabled to see i18next logs
+    debug: true, // Re-enable debug for more detailed logs
     lng,
-    // fallbackLng: fallbackLng, // Removed from direct init options
     ns,
     defaultNS,
-    load: 'currentOnly', // Load only the current language
-    initImmediate: false, // Explicitly set to false
+    fallbackLng: false, // Explicitly disable fallback language
+    load: 'currentOnly',
+    initImmediate: false, // Keep this false
+    react: {
+      useSuspense: false, // Keep suspense disabled
+    },
   };
 }
-
