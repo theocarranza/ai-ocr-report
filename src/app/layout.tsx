@@ -3,8 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter, PT_Sans } from 'next/font/google';
-import { TranslationProvider, initI18nextInstance } from './TranslationProvider'; // Updated import
-import { defaultNS, fallbackLng } from './i18n/settings';
+// Removed i18n related imports
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,11 +19,11 @@ const ptSans = PT_Sans({
   variable: '--font-pt-sans',
 });
 
+// Simplified metadata without using i18n for now
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await initI18nextInstance(fallbackLng, defaultNS);
   return {
-    title: t('appTitle'),
-    description: t('appDescription'),
+    title: 'File Insights', // Hardcoded English
+    description: 'Extract insights from your files.', // Hardcoded English
   };
 }
 
@@ -34,12 +33,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang={fallbackLng} className={`${ptSans.variable} ${inter.variable}`}>
+    // Hardcoding lang to 'en' as i18n is temporarily removed
+    <html lang="en" className={`${ptSans.variable} ${inter.variable}`}>
       <head />
       <body className="font-body antialiased">
-        <TranslationProvider locale={fallbackLng}>
-          {children}
-        </TranslationProvider>
+        {/* TranslationProvider removed */}
+        {children}
         <Toaster />
       </body>
     </html>

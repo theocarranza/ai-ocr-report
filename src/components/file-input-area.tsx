@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+// import { useTranslation } from 'react-i18next'; // Removed i18n
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,7 @@ export function FileInputArea({
   setManualText,
   clearAllInputs
 }: FileInputAreaProps) {
-  const { t } = useTranslation();
+  // const { t } = useTranslation(); // Removed i18n
   const [activeTab, setActiveTab] = useState("file-upload");
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,19 +58,19 @@ export function FileInputArea({
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline text-2xl flex items-center">
-          <UploadCloud className="mr-2 h-6 w-6 text-primary" /> {t('fileInputAreaCardTitle')}
+          <UploadCloud className="mr-2 h-6 w-6 text-primary" /> Input Source {/* Hardcoded English */}
         </CardTitle>
-        <CardDescription>{t('fileInputAreaCardDescription')}</CardDescription>
+        <CardDescription>Upload image or PDF files for text extraction, or paste text directly.</CardDescription> {/* Hardcoded English */}
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="file-upload">{t('fileUploadTab')}</TabsTrigger>
-            <TabsTrigger value="paste-text">{t('pasteTextTab')}</TabsTrigger>
+            <TabsTrigger value="file-upload">File Upload</TabsTrigger> {/* Hardcoded English */}
+            <TabsTrigger value="paste-text">Paste Text</TabsTrigger> {/* Hardcoded English */}
           </TabsList>
           <TabsContent value="file-upload">
             <div className="mt-4">
-              <Label htmlFor="file-upload-input" className="sr-only">{t('fileUploadLabel')}</Label>
+              <Label htmlFor="file-upload-input" className="sr-only">Upload files</Label> {/* Hardcoded English */}
               <Input 
                 id="file-upload-input" 
                 type="file" 
@@ -81,11 +81,11 @@ export function FileInputArea({
                 aria-describedby="file-upload-description"
               />
               <p id="file-upload-description" className="mt-1 text-sm text-muted-foreground">
-                {t('fileUploadDescription')}
+                Select one or more image or PDF files. Text will be extracted using AI. {/* Hardcoded English */}
               </p>
               {selectedFiles.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <h3 className="text-sm font-medium">{t('selectedFilesLabel')}</h3>
+                  <h3 className="text-sm font-medium">Selected Files:</h3> {/* Hardcoded English */}
                   <ul className="max-h-40 overflow-y-auto rounded-md border p-2">
                     {selectedFiles.map(file => (
                       <li key={file.name} className="flex items-center justify-between p-1 hover:bg-muted rounded">
@@ -93,7 +93,7 @@ export function FileInputArea({
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">{file.name} ({(file.size / 1024).toFixed(2)} KB)</span>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveFile(file.name)} aria-label={t('removeFileAriaLabel', { fileName: file.name })}>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveFile(file.name)} aria-label={`Remove ${file.name}`}> {/* Hardcoded English */}
                           <XCircle className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -105,22 +105,22 @@ export function FileInputArea({
           </TabsContent>
           <TabsContent value="paste-text">
             <div className="mt-4">
-              <Label htmlFor="manual-text-input" className="font-medium">{t('pasteTextLabel')}</Label>
+              <Label htmlFor="manual-text-input" className="font-medium">Paste your text here:</Label> {/* Hardcoded English */}
               <Textarea 
                 id="manual-text-input"
                 value={manualText} 
                 onChange={handleManualTextChange} 
                 rows={8} 
-                placeholder={t('pasteTextPlaceholder')}
+                placeholder="Type or paste text content..." /* Hardcoded English */
                 className="mt-2"
-                aria-label={t('pasteTextAriaLabel')}
+                aria-label="Paste text content" /* Hardcoded English */
               />
             </div>
           </TabsContent>
         </Tabs>
         {(selectedFiles.length > 0 || manualText) && (
             <Button onClick={clearAllInputs} variant="outline" className="mt-4 w-full md:w-auto">
-                <XCircle className="mr-2 h-4 w-4" /> {t('clearInputsButton')}
+                <XCircle className="mr-2 h-4 w-4" /> Clear Inputs {/* Hardcoded English */}
             </Button>
         )}
       </CardContent>

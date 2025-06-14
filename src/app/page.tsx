@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+// import { useTranslation } from 'react-i18next'; // Removed i18n
 import { Button } from '@/components/ui/button';
 import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
@@ -19,7 +19,7 @@ interface OcrFileData {
 }
 
 export default function Home() {
-  const { t } = useTranslation();
+  // const { t } = useTranslation(); // Removed i18n
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]);
   const [manualText, setManualText] = useState<string>("");
@@ -47,8 +47,8 @@ export default function Home() {
     setInputSource("");
     setProcessedFileNames([]);
     toast({ 
-      title: t('toastInputsClearedTitle'), 
-      description: t('toastInputsClearedDescription') 
+      title: "Inputs Cleared", // Hardcoded English
+      description: "All input fields and results have been reset." // Hardcoded English
     });
   };
 
@@ -78,8 +78,8 @@ export default function Home() {
       currentInputSource = "file_upload";
       const ocrResultsFromFileUploads: OcrFileData[] = [];
       toast({ 
-        title: t('toastProcessingFilesTitle'), 
-        description: t('toastProcessingFilesDescription', { count: selectedFiles.length })
+        title: "Processing Files...", // Hardcoded English
+        description: `Attempting to extract text from ${selectedFiles.length} file(s). This may take a moment.` // Hardcoded English
       });
       try {
         for (const file of selectedFiles) {
@@ -97,8 +97,8 @@ export default function Home() {
       } catch (ocrError) {
         console.error("OCR error:", ocrError);
         toast({
-          title: t('toastOcrErrorTitle'),
-          description: ocrError instanceof Error ? ocrError.message : t('toastOcrErrorDescription'),
+          title: "OCR Error", // Hardcoded English
+          description: ocrError instanceof Error ? ocrError.message : "Failed to extract text from one or more files.", // Hardcoded English
           variant: "destructive",
         });
         setProcessing(false);
@@ -118,8 +118,8 @@ export default function Home() {
 
     if (!combinedTextForProcessing) {
       toast({
-        title: t('toastNoInputProvidedTitle'),
-        description: t('toastNoInputProvidedDescription'),
+        title: "No Input Provided", // Hardcoded English
+        description: "Please upload image/PDF files or paste text to process.", // Hardcoded English
         variant: "destructive",
       });
       setProcessing(false);
@@ -128,8 +128,8 @@ export default function Home() {
 
     if (!keywords.trim()) {
       toast({
-        title: t('toastNoKeywordsTitle'),
-        description: t('toastNoKeywordsDescription'),
+        title: "No Keywords", // Hardcoded English
+        description: "Please enter some keywords to search for.", // Hardcoded English
         variant: "destructive",
       });
       setProcessing(false);
@@ -163,15 +163,15 @@ export default function Home() {
       setFoundKeywordsInText(foundKws);
       
       toast({
-        title: t('toastProcessingCompleteTitle'),
-        description: t('toastProcessingCompleteDescription'),
+        title: "Processing Complete", // Hardcoded English
+        description: "Insights have been generated.", // Hardcoded English
       });
 
     } catch (error) {
       console.error("Processing error (summary/enrichment):", error);
       toast({
-        title: t('toastInsightGenerationErrorTitle'),
-        description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
+        title: "Insight Generation Error", // Hardcoded English
+        description: error instanceof Error ? error.message : "An unknown error occurred during insight generation.", // Hardcoded English
         variant: "destructive",
       });
       setSummaryResult(null);
@@ -194,10 +194,10 @@ export default function Home() {
             <FileType className="h-10 w-10 text-primary-foreground" />
           </div>
           <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
-            {t('pageTitle')}
+            File Insights {/* Hardcoded English */}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-            {t('pageSubtitle')}
+            Upload your images or PDFs, or paste text, define keywords, and let AI extract valuable information for you. {/* Hardcoded English */}
           </p>
         </header>
 
@@ -221,11 +221,11 @@ export default function Home() {
             >
               {processing ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('processingButton')}
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing... {/* Hardcoded English */}
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-5 w-5" /> {t('generateInsightsButton')}
+                  <Sparkles className="mr-2 h-5 w-5" /> Generate Insights {/* Hardcoded English */}
                 </>
               )}
             </Button>
@@ -245,7 +245,8 @@ export default function Home() {
         </main>
         
         <footer className="mt-16 pt-8 border-t text-center text-muted-foreground text-sm">
-          <p dangerouslySetInnerHTML={{ __html: t('footerText', { year: new Date().getFullYear() }) }} />
+          {/* Hardcoded English, simplified */}
+          <p>&copy; {new Date().getFullYear()} File Insights. Powered by Next.js & GenAI.</p>
         </footer>
       </div>
     </div>
