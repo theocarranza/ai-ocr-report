@@ -20,7 +20,7 @@ export type ExtractKeywordValuesInput = z.infer<typeof ExtractKeywordValuesInput
 
 const KeywordValuesEntrySchema = z.object({
   keyword: z.string().describe("One of the keywords provided in the input."),
-  foundValues: z.array(z.string()).describe("An array of all extracted information (values) from the text corresponding to this keyword. This array will be empty if no values are found.")
+  foundValues: z.array(z.string()).describe("An array of all extracted information (values) from the text corresponding to this keyword. This array will be empty if no values are found. Values should be cleaned of extraneous characters like '<<' or '>>' and trimmed.")
 });
 
 const ExtractKeywordValuesOutputSchema = z.object({
@@ -43,11 +43,15 @@ const extractKeywordValuesPrompt = ai.definePrompt({
   prompt: `You are an AI assistant tasked with extracting specific information from a document based on a provided list of keywords.
 For EACH keyword in the input 'keywords' list:
 1. Identify ALL distinct pieces of information (values) in the 'documentText' that directly correspond to that keyword.
-2. Construct an object with two properties:
+2. When extracting values for 'foundValues', please ensure to:
+    a. Remove any surrounding special characters such as '<<' and '>>'. For example, if the text is "<< John Doe >>", extract "John Doe".
+    b. Trim leading/trailing whitespace from each extracted value.
+    c. If a value inherently contains meaningful internal punctuation (like a comma in 'Recife, PE'), preserve it.
+3. Construct an object with two properties:
     a. "keyword": This MUST be the exact keyword string from the input list.
-    b. "foundValues": This MUST be an array of strings. Each string in this array should be a distinct value extracted from the 'documentText' for the corresponding "keyword".
-3. If NO values are found in the 'documentText' for a specific input keyword, the "foundValues" array for that keyword's object MUST be empty ([]).
-4. The final output MUST be an array of these objects. Ensure there is exactly one object in the output array for EACH keyword provided in the input 'keywords' list.
+    b. "foundValues": This MUST be an array of strings. Each string in this array should be a distinct, cleaned value extracted from the 'documentText' for the corresponding "keyword".
+4. If NO values are found in the 'documentText' for a specific input keyword, the "foundValues" array for that keyword's object MUST be empty ([]).
+5. The final output MUST be an array of these objects. Ensure there is exactly one object in the output array for EACH keyword provided in the input 'keywords' list.
 
 Input Keywords: {{#each keywords}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
 
@@ -57,7 +61,7 @@ Document Text:
 Respond ONLY with the JSON array of objects as described in the output schema.
 Example based on Output Schema:
 If Input Keywords are: "name", "order date", "status"
-And Document Text is: "Customer name is John Doe. The order date is 2023-01-15. Another name is Jane Doe. Order was placed on 2023-01-15."
+And Document Text is: "Customer name is << John Doe >>. The order date is 2023-01-15. Another name is Jane Doe. Order was placed on 2023-01-15."
 The expected JSON output is:
 {
   "extractedKeywordEntries": [
@@ -80,12 +84,8 @@ const extractKeywordValuesFlow = ai.defineFlow(
       return { extractedKeywordEntries: [] };
     }
     const {output} = await extractKeywordValuesPrompt(input);
-    // Ensure that if the AI returns null or undefined output, we still conform to the schema.
-    // Also, ensure an entry for every input keyword, even if AI misses it (though prompt tries to enforce this).
-    // For simplicity, we'll rely on the AI to return one entry per keyword.
-    // A more robust post-processing step could be added here if needed.
+
     if (!output || !output.extractedKeywordEntries) {
-        // Fallback: create entries for all keywords with empty foundValues if AI fails badly
         const fallbackEntries = input.keywords.map(kw => ({ keyword: kw, foundValues: [] }));
         return { extractedKeywordEntries: fallbackEntries };
     }
@@ -97,6 +97,13 @@ const extractKeywordValuesFlow = ai.defineFlow(
         output.extractedKeywordEntries.push({ keyword: kw, foundValues: [] });
     }
     
+    // Additional client-side cleaning as a fallback, though the prompt aims for AI to do this.
+    output.extractedKeywordEntries.forEach(entry => {
+        entry.foundValues = entry.foundValues.map(val => 
+            val.replace(/(^<<\s*|\s*>>$)/g, '').trim()
+        );
+    });
+
     return output;
   }
 );

@@ -9,20 +9,16 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
 import type { EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
-// No direct import for ExtractKeywordValuesOutput needed if we type the prop directly
+import type { KeywordValuesEntry as ExtractedKeywordEntry } from '@/ai/flows/extract-keyword-values-flow';
 
-interface ExtractedKeywordEntry {
-  keyword: string;
-  foundValues: string[];
-}
 
 interface ResultsDisplayProps {
   summary: SummarizeFileContentOutput | null;
   enrichedKeywords: EnrichKeywordsOutput | null;
-  extractedKeywordEntries?: ExtractedKeywordEntry[] | null; // Changed prop name and type
+  extractedKeywordEntries?: ExtractedKeywordEntry[] | null;
   userKeywords: string[];
   foundKeywordsInText: string[];
-  fullExtractedText: string;
+  fullExtractedTextForOutput: string; // Changed prop name
   source: string;
   filesProcessed?: string[];
 }
@@ -30,20 +26,19 @@ interface ResultsDisplayProps {
 export function ResultsDisplay({ 
   summary, 
   enrichedKeywords,
-  extractedKeywordEntries, // Changed prop name
+  extractedKeywordEntries,
   userKeywords,
   foundKeywordsInText,
-  fullExtractedText,
+  fullExtractedTextForOutput, // Changed prop name
   source,
   filesProcessed
 }: ResultsDisplayProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const fullExtractedTextArray = fullExtractedText.split('\n').filter(line => line.trim() !== '');
+  const fullExtractedTextArray = fullExtractedTextForOutput.split('\n').filter(line => line.trim() !== '');
 
-  // Transform extractedKeywordEntries for the final JSON output
-  const transformedKeywordValueMap = extractedKeywordEntries
+  const transformedKeywordValueMapForJson = extractedKeywordEntries
     ? extractedKeywordEntries.map(entry => ({ [entry.keyword]: entry.foundValues }))
     : [];
 
@@ -55,7 +50,7 @@ export function ResultsDisplay({
     user_keywords: userKeywords,
     keywords_found_in_text: foundKeywordsInText,
     suggested_keywords_for_enrichment: enrichedKeywords?.suggestedKeywords || [],
-    keyword_value_map: transformedKeywordValueMap, // Use the transformed data
+    keyword_value_map: transformedKeywordValueMapForJson,
   };
 
   const handleDownloadJson = () => {

@@ -32,7 +32,7 @@ export default function Home() {
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
   const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); 
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
-  const [finalProcessedText, setFinalProcessedText] = useState<string>("");
+  const [finalProcessedTextForOutput, setFinalProcessedTextForOutput] = useState<string>(""); // For UI display and JSON export
   const [inputSource, setInputSource] = useState<string>(""); 
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
@@ -58,7 +58,7 @@ export default function Home() {
     setEnrichedKeywordsResult(null);
     setKeywordValueMapResult(null);
     setFoundKeywordsInText([]);
-    setFinalProcessedText("");
+    setFinalProcessedTextForOutput("");
     setInputSource("");
     setProcessedFileNames([]);
     toast({ 
@@ -82,10 +82,10 @@ export default function Home() {
       newKeywords.forEach(kw => {
         const trimmedKw = kw.trim();
         if (trimmedKw && !updatedHistory.includes(trimmedKw)) {
-          updatedHistory.unshift(trimmedKw); // Add to the beginning
+          updatedHistory.unshift(trimmedKw); 
         }
       });
-      return updatedHistory.slice(0, 20); // Keep only the latest 20 keywords
+      return updatedHistory.slice(0, 20); 
     });
   };
 
@@ -109,12 +109,13 @@ export default function Home() {
     setEnrichedKeywordsResult(null);
     setKeywordValueMapResult(null);
     setFoundKeywordsInText([]);
-    setFinalProcessedText("");
+    setFinalProcessedTextForOutput("");
     setOcrFileResults([]); 
     setProcessedFileNames([]);
 
     let currentInputSource = "";
-    let combinedTextForProcessing = "";
+    let textForAiProcessing = ""; // Text with delimiters for AI
+    let cleanTextForOutput = ""; // Text without delimiters for final output
     const currentFileNamesProcessed: string[] = [];
 
     if (selectedFiles.length > 0) {
@@ -133,10 +134,16 @@ export default function Home() {
           ocrResultsFromFileUploads.push({ name: file.name, extractedText: ocrOutput.extractedText });
         }
         setOcrFileResults(ocrResultsFromFileUploads);
-        const extractedTexts = ocrResultsFromFileUploads.map(
+        
+        // Prepare text for AI (with delimiters)
+        const textsWithDelimiters = ocrResultsFromFileUploads.map(
           res => `--- START OF FILE: ${res.name} ---\n${res.extractedText}\n--- END OF FILE: ${res.name} ---`
         );
-        combinedTextForProcessing = extractedTexts.join("\n\n");
+        textForAiProcessing = textsWithDelimiters.join("\n\n");
+
+        // Prepare clean text for output
+        cleanTextForOutput = ocrResultsFromFileUploads.map(res => res.extractedText).join("\n\n");
+
       } catch (ocrError) {
         console.error("OCR error:", ocrError);
         toast({
@@ -150,16 +157,19 @@ export default function Home() {
     }
 
     if (manualText.trim()) {
-      if (combinedTextForProcessing) { 
-        combinedTextForProcessing += "\n\n--- START OF MANUAL TEXT ---\n" + manualText.trim() + "\n--- END OF MANUAL TEXT ---";
-        currentInputSource = "file_and_manual_paste";
+      const trimmedManualText = manualText.trim();
+      if (textForAiProcessing) { 
+        textForAiProcessing += "\n\n--- START OF MANUAL TEXT ---\n" + trimmedManualText + "\n--- END OF MANUAL TEXT ---";
+        cleanTextForOutput += (cleanTextForOutput ? "\n\n" : "") + trimmedManualText;
+        currentInputSource = currentInputSource === "file_upload" ? "file_and_manual_paste" : "manual_paste";
       } else {
-        combinedTextForProcessing = manualText.trim();
+        textForAiProcessing = trimmedManualText;
+        cleanTextForOutput = trimmedManualText;
         currentInputSource = "manual_paste";
       }
     }
 
-    if (!combinedTextForProcessing) {
+    if (!textForAiProcessing) {
       toast({
         title: t('toastNoInputProvidedTitle'),
         description: t('toastNoInputProvidedDescription'),
@@ -183,17 +193,17 @@ export default function Home() {
     
     updateKeywordHistory(userKeywordsArray);
 
-    setFinalProcessedText(combinedTextForProcessing);
+    setFinalProcessedTextForOutput(cleanTextForOutput);
     setInputSource(currentInputSource || "unknown"); 
     setProcessedFileNames(currentFileNamesProcessed);
 
     try {
-      const summaryInput: SummarizeFileContentInput = { fileText: combinedTextForProcessing };
+      const summaryInput: SummarizeFileContentInput = { fileText: textForAiProcessing }; // Use text with delimiters for AI
       const summaryOutput = await summarizeFileContent(summaryInput);
       setSummaryResult(summaryOutput);
 
       const enrichmentInput: EnrichKeywordsInput = { 
-        documentContent: combinedTextForProcessing, 
+        documentContent: textForAiProcessing, // Use text with delimiters for AI
         existingKeywords: userKeywordsArray 
       };
       const enrichmentOutput = await enrichKeywords(enrichmentInput);
@@ -201,7 +211,7 @@ export default function Home() {
 
       if (userKeywordsArray.length > 0) {
         const keywordValuesInput: ExtractKeywordValuesInput = {
-          documentText: combinedTextForProcessing,
+          documentText: textForAiProcessing, // Use text with delimiters for AI
           keywords: userKeywordsArray,
         };
         const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
@@ -211,9 +221,9 @@ export default function Home() {
       }
       
       const foundKws: string[] = [];
-      const lowerCombinedText = combinedTextForProcessing.toLowerCase();
+      const lowerCleanTextForSearch = cleanTextForOutput.toLowerCase(); // Search in clean text
       userKeywordsArray.forEach(kw => {
-        if (lowerCombinedText.includes(kw.toLowerCase())) {
+        if (lowerCleanTextForSearch.includes(kw.toLowerCase())) {
           foundKws.push(kw);
         }
       });
@@ -241,7 +251,7 @@ export default function Home() {
   };
 
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
-  const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedText !== "");
+  const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -301,7 +311,7 @@ export default function Home() {
               extractedKeywordEntries={keywordValueMapResult?.extractedKeywordEntries}
               userKeywords={userKeywordsArray}
               foundKeywordsInText={foundKeywordsInText}
-              fullExtractedText={finalProcessedText}
+              fullExtractedTextForOutput={finalProcessedTextForOutput}
               source={inputSource}
               filesProcessed={processedFileNames}
             />
@@ -315,3 +325,4 @@ export default function Home() {
     </div>
   );
 }
+
