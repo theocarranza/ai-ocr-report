@@ -9,16 +9,17 @@ import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
 import { summarizeFileContent, type SummarizeFileContentInput, type SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
 import { enrichKeywords, type EnrichKeywordsInput, type EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
+import { extractTextFromDocument, type ExtractTextFromDocumentInput, type ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
 import { Loader2, Sparkles, FileType } from 'lucide-react';
 
-interface FileData {
+interface OcrFileData {
   name: string;
-  content: string; // Extracted text content
+  extractedText: string;
 }
 
 export default function Home() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [extractedFileTexts, setExtractedFileTexts] = useState<FileData[]>([]);
+  const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]);
   const [manualText, setManualText] = useState<string>("");
   const [keywords, setKeywords] = useState<string>("");
   const [processing, setProcessing] = useState<boolean>(false);
@@ -27,54 +28,93 @@ export default function Home() {
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
   const [finalProcessedText, setFinalProcessedText] = useState<string>("");
-  const [inputSource, setInputSource] = useState<string>("file_upload");
+  const [inputSource, setInputSource] = useState<string>(""); // e.g. "file_upload", "manual_paste", "file_and_manual_paste"
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
-
   const { toast } = useToast();
-
-  const handleTextExtracted = useCallback((filename: string, content: string) => {
-    setExtractedFileTexts(prev => {
-      const existingFile = prev.find(f => f.name === filename);
-      if (existingFile) {
-        return prev.map(f => f.name === filename ? { ...f, content } : f);
-      }
-      return [...prev, { name: filename, content }];
-    });
-  }, []);
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
-    setExtractedFileTexts([]);
+    setOcrFileResults([]);
     setManualText("");
     setKeywords("");
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
     setFoundKeywordsInText([]);
     setFinalProcessedText("");
-    setInputSource("file_upload");
+    setInputSource("");
     setProcessedFileNames([]);
     toast({ title: "Inputs Cleared", description: "All input fields and results have been reset." });
   };
 
+  const fileToDataUri = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleProcess = async () => {
-    let combinedText = "";
-    let currentSource = "manual_paste";
-    let currentProcessedFileNames: string[] = [];
+    setProcessing(true);
+    setSummaryResult(null);
+    setEnrichedKeywordsResult(null);
+    setFoundKeywordsInText([]);
+    setFinalProcessedText("");
+    setOcrFileResults([]); 
+    setProcessedFileNames([]);
+
+    let currentInputSource = "";
+    let combinedTextForProcessing = "";
+    const currentFileNamesProcessed: string[] = [];
+
+    if (selectedFiles.length > 0) {
+      currentInputSource = "file_upload";
+      const ocrResultsFromFileUploads: OcrFileData[] = [];
+      toast({ title: "Processing Files...", description: `Attempting to extract text from ${selectedFiles.length} file(s). This may take a moment.` });
+      try {
+        for (const file of selectedFiles) {
+          currentFileNamesProcessed.push(file.name);
+          const documentDataUri = await fileToDataUri(file);
+          const ocrInput: ExtractTextFromDocumentInput = { documentDataUri };
+          const ocrOutput = await extractTextFromDocument(ocrInput);
+          ocrResultsFromFileUploads.push({ name: file.name, extractedText: ocrOutput.extractedText });
+        }
+        setOcrFileResults(ocrResultsFromFileUploads);
+        const extractedTexts = ocrResultsFromFileUploads.map(
+          res => `--- START OF FILE: ${res.name} ---\n${res.extractedText}\n--- END OF FILE: ${res.name} ---`
+        );
+        combinedTextForProcessing = extractedTexts.join("\n\n");
+      } catch (ocrError) {
+        console.error("OCR error:", ocrError);
+        toast({
+          title: "OCR Error",
+          description: ocrError instanceof Error ? ocrError.message : "Failed to extract text from one or more files.",
+          variant: "destructive",
+        });
+        setProcessing(false);
+        return;
+      }
+    }
 
     if (manualText.trim()) {
-      combinedText = manualText.trim();
-      currentSource = "manual_paste";
-    } else if (extractedFileTexts.length > 0) {
-      combinedText = extractedFileTexts.map(f => `--- START OF FILE: ${f.name} ---\n${f.content}\n--- END OF FILE: ${f.name} ---`).join("\n\n");
-      currentSource = "file_upload";
-      currentProcessedFileNames = extractedFileTexts.map(f => f.name);
-    } else {
+      if (combinedTextForProcessing) { 
+        combinedTextForProcessing += "\n\n--- START OF MANUAL TEXT ---\n" + manualText.trim() + "\n--- END OF MANUAL TEXT ---";
+        currentInputSource = "file_and_manual_paste";
+      } else {
+        combinedTextForProcessing = manualText.trim();
+        currentInputSource = "manual_paste";
+      }
+    }
+
+    if (!combinedTextForProcessing) {
       toast({
         title: "No Input Provided",
-        description: "Please upload files or paste text to process.",
+        description: "Please upload image/PDF files or paste text to process.",
         variant: "destructive",
       });
+      setProcessing(false);
       return;
     }
 
@@ -84,35 +124,29 @@ export default function Home() {
         description: "Please enter some keywords to search for.",
         variant: "destructive",
       });
+      setProcessing(false);
       return;
     }
 
-    setProcessing(true);
-    setSummaryResult(null);
-    setEnrichedKeywordsResult(null);
-    setFoundKeywordsInText([]);
-    setFinalProcessedText(combinedText);
-    setInputSource(currentSource);
-    setProcessedFileNames(currentProcessedFileNames);
+    setFinalProcessedText(combinedTextForProcessing);
+    setInputSource(currentInputSource || "unknown"); 
+    setProcessedFileNames(currentFileNamesProcessed);
 
     try {
-      // 1. Summarize content
-      const summaryInput: SummarizeFileContentInput = { fileText: combinedText };
+      const summaryInput: SummarizeFileContentInput = { fileText: combinedTextForProcessing };
       const summaryOutput = await summarizeFileContent(summaryInput);
       setSummaryResult(summaryOutput);
 
-      // 2. Enrich keywords
       const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
       const enrichmentInput: EnrichKeywordsInput = { 
-        documentContent: combinedText, 
+        documentContent: combinedTextForProcessing, 
         existingKeywords: userKeywordsArray 
       };
       const enrichmentOutput = await enrichKeywords(enrichmentInput);
       setEnrichedKeywordsResult(enrichmentOutput);
 
-      // 3. Simple client-side keyword search (placeholder)
       const foundKws: string[] = [];
-      const lowerCombinedText = combinedText.toLowerCase();
+      const lowerCombinedText = combinedTextForProcessing.toLowerCase();
       userKeywordsArray.forEach(kw => {
         if (lowerCombinedText.includes(kw.toLowerCase())) {
           foundKws.push(kw);
@@ -126,13 +160,12 @@ export default function Home() {
       });
 
     } catch (error) {
-      console.error("Processing error:", error);
+      console.error("Processing error (summary/enrichment):", error);
       toast({
-        title: "Processing Error",
-        description: error instanceof Error ? error.message : "An unknown error occurred during processing.",
+        title: "Insight Generation Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred during insight generation.",
         variant: "destructive",
       });
-      // Clear potentially partial results on error
       setSummaryResult(null);
       setEnrichedKeywordsResult(null);
       setFoundKeywordsInText([]);
@@ -156,7 +189,7 @@ export default function Home() {
             File Insights
           </h1>
           <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your documents or paste text, define keywords, and let AI extract valuable information for you.
+            Upload your images or PDFs, or paste text, define keywords, and let AI extract valuable information for you.
           </p>
         </header>
 
@@ -166,7 +199,6 @@ export default function Home() {
             setSelectedFiles={setSelectedFiles}
             manualText={manualText}
             setManualText={setManualText}
-            onTextExtracted={handleTextExtracted}
             clearAllInputs={clearAllInputs}
           />
           <KeywordEntry keywords={keywords} setKeywords={setKeywords} />

@@ -16,7 +16,6 @@ interface FileInputAreaProps {
   setSelectedFiles: (files: File[]) => void;
   manualText: string;
   setManualText: (text: string) => void;
-  onTextExtracted: (filename: string, content: string) => void;
   clearAllInputs: () => void;
 }
 
@@ -25,7 +24,6 @@ export function FileInputArea({
   setSelectedFiles, 
   manualText, 
   setManualText,
-  onTextExtracted,
   clearAllInputs
 }: FileInputAreaProps) {
   const [activeTab, setActiveTab] = useState("file-upload");
@@ -34,27 +32,11 @@ export function FileInputArea({
     if (event.target.files) {
       const newFiles = Array.from(event.target.files);
       setSelectedFiles(newFiles);
-      newFiles.forEach(file => {
-        if (file.type === 'text/plain') {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const textContent = e.target?.result as string;
-            if (textContent) {
-              onTextExtracted(file.name, textContent);
-            }
-          };
-          reader.readAsText(file);
-        } else {
-          // For non-txt files, we are not extracting text client-side in this POC
-          onTextExtracted(file.name, `OCR for ${file.type} is not implemented in this POC. Only .txt files are auto-read.`);
-        }
-      });
     }
-  }, [setSelectedFiles, onTextExtracted]);
+  }, [setSelectedFiles]);
 
   const handleRemoveFile = (fileName: string) => {
     setSelectedFiles(selectedFiles.filter(file => file.name !== fileName));
-    // Also remove its extracted text if any (logic would be in parent component)
   };
   
   const handleManualTextChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -63,7 +45,6 @@ export function FileInputArea({
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // When switching tabs, clear the other input type to avoid confusion
     if (value === "file-upload") {
       setManualText("");
     } else {
@@ -77,7 +58,7 @@ export function FileInputArea({
         <CardTitle className="font-headline text-2xl flex items-center">
           <UploadCloud className="mr-2 h-6 w-6 text-primary" /> Input Source
         </CardTitle>
-        <CardDescription>Upload files (.txt supported for auto-extraction) or paste text directly.</CardDescription>
+        <CardDescription>Upload image or PDF files for text extraction, or paste text directly.</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
@@ -92,12 +73,13 @@ export function FileInputArea({
                 id="file-upload-input" 
                 type="file" 
                 multiple 
+                accept="image/*,application/pdf"
                 onChange={handleFileChange} 
                 className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                 aria-describedby="file-upload-description"
               />
               <p id="file-upload-description" className="mt-1 text-sm text-muted-foreground">
-                Select one or more files. Only .txt files will have their content automatically extracted.
+                Select one or more image or PDF files. Text will be extracted using AI.
               </p>
               {selectedFiles.length > 0 && (
                 <div className="mt-4 space-y-2">
