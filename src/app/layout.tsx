@@ -22,8 +22,8 @@ const ptSans = PT_Sans({
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "DocuExtract AI (Static Title)",
-    description: "Use DocuExtract AI to extract insights from your files. (Static Description)",
+    title: "File Insights (Static Title)",
+    description: "Use File Insights to extract insights from your files. (Static Description)",
   };
 }
 
