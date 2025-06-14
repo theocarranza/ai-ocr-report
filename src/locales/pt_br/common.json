@@ -1,12 +1,12 @@
 
 {
-  "appTitle": "Análises de Arquivos",
-  "appDescription": "Extraia insights dos seus arquivos.",
-  "pageTitle": "Análises de Arquivos",
+  "appTitle": "DocuExtract AI",
+  "appDescription": "Use DocuExtract AI para extrair informações e insights de seus arquivos.",
+  "pageTitle": "DocuExtract AI",
   "pageSubtitle": "Faça upload de suas imagens ou PDFs, ou cole o texto, defina palavras-chave e deixe a IA extrair informações valiosas para você.",
   "generateInsightsButton": "Gerar Insights",
   "processingButton": "Processando...",
-  "footerText": "&copy; {{year}} Análises de Arquivos. Desenvolvido com Next.js & GenAI.",
+  "footerText": "&copy; {{year}} DocuExtract AI. Desenvolvido com Next.js & GenAI.",
   "toastInputsClearedTitle": "Entradas Limpas",
   "toastInputsClearedDescription": "Todos os campos de entrada e resultados foram redefinidos.",
   "toastProcessingFilesTitle": "Processando Arquivos...",

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter, PT_Sans } from 'next/font/google';
-import { TranslationProvider } from './TranslationProvider'; // Removed initI18nextInstance and getOptions from here
+import { TranslationProvider } from './TranslationProvider'; 
 import { fallbackLng } from './i18n/settings';
 
 const inter = Inter({
@@ -20,12 +20,10 @@ const ptSans = PT_Sans({
   variable: '--font-pt-sans',
 });
 
-// Temporarily use hardcoded strings to avoid calling initI18nextInstance here
-// This is to test if multiple initializations are causing the stack overflow.
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "File Insights (Static Title)",
-    description: "Extract insights from your files. (Static Description)",
+    title: "DocuExtract AI (Static Title)",
+    description: "Use DocuExtract AI to extract insights from your files. (Static Description)",
   };
 }
 
@@ -34,7 +32,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = fallbackLng; // Assuming 'pt_br'
+  const locale = fallbackLng; 
   return (
     <html lang={locale} className={`${ptSans.variable} ${inter.variable}`}>
       <head />
