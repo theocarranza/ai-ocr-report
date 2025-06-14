@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { FileInputArea } from '@/components/file-input-area';
@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { summarizeFileContent, type SummarizeFileContentInput, type SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
 import { enrichKeywords, type EnrichKeywordsInput, type EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
 import { extractTextFromDocument, type ExtractTextFromDocumentInput, type ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
-import { extractKeywordValues, type ExtractKeywordValuesInput, type ExtractKeywordValuesOutput } from '@/ai/flows/extract-keyword-values-flow';
+import { extractKeywordValues, type ExtractKeywordValuesInput, type ExtractKeywordValuesOutput, type KeywordValuesEntry } from '@/ai/flows/extract-keyword-values-flow';
 import { Loader2, Sparkles, FileType } from 'lucide-react';
 
 interface OcrFileData {
@@ -25,17 +25,29 @@ export default function Home() {
   const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]);
   const [manualText, setManualText] = useState<string>("");
   const [keywords, setKeywords] = useState<string>("");
+  const [keywordHistory, setKeywordHistory] = useState<string[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
   
   const [summaryResult, setSummaryResult] = useState<SummarizeFileContentOutput | null>(null);
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
-  const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); // This will hold { extractedKeywordEntries: [...] }
+  const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); 
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
   const [finalProcessedText, setFinalProcessedText] = useState<string>("");
   const [inputSource, setInputSource] = useState<string>(""); 
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    const storedHistory = localStorage.getItem('keywordHistory');
+    if (storedHistory) {
+      setKeywordHistory(JSON.parse(storedHistory));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('keywordHistory', JSON.stringify(keywordHistory));
+  }, [keywordHistory]);
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
@@ -61,6 +73,33 @@ export default function Home() {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(file);
+    });
+  };
+
+  const updateKeywordHistory = (newKeywords: string[]) => {
+    setKeywordHistory(prevHistory => {
+      const updatedHistory = [...prevHistory];
+      newKeywords.forEach(kw => {
+        const trimmedKw = kw.trim();
+        if (trimmedKw && !updatedHistory.includes(trimmedKw)) {
+          updatedHistory.unshift(trimmedKw); // Add to the beginning
+        }
+      });
+      return updatedHistory.slice(0, 20); // Keep only the latest 20 keywords
+    });
+  };
+
+  const handleRemoveKeywordFromHistory = (keywordToRemove: string) => {
+    setKeywordHistory(prevHistory => prevHistory.filter(kw => kw !== keywordToRemove));
+  };
+
+  const handleAddKeywordFromSuggestion = (suggestedKeyword: string) => {
+    setKeywords(prevKeywords => {
+      const currentKwsArray = prevKeywords.split(',').map(k => k.trim()).filter(Boolean);
+      if (!currentKwsArray.includes(suggestedKeyword.trim())) {
+        return prevKeywords ? `${prevKeywords}, ${suggestedKeyword}` : suggestedKeyword;
+      }
+      return prevKeywords;
     });
   };
 
@@ -130,7 +169,9 @@ export default function Home() {
       return;
     }
 
-    if (!keywords.trim()) {
+    const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
+
+    if (userKeywordsArray.length === 0) {
       toast({
         title: t('toastNoKeywordsTitle'),
         description: t('toastNoKeywordsDescription'),
@@ -139,14 +180,14 @@ export default function Home() {
       setProcessing(false);
       return;
     }
+    
+    updateKeywordHistory(userKeywordsArray);
 
     setFinalProcessedText(combinedTextForProcessing);
     setInputSource(currentInputSource || "unknown"); 
     setProcessedFileNames(currentFileNamesProcessed);
 
     try {
-      const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
-
       const summaryInput: SummarizeFileContentInput = { fileText: combinedTextForProcessing };
       const summaryOutput = await summarizeFileContent(summaryInput);
       setSummaryResult(summaryOutput);
@@ -164,12 +205,11 @@ export default function Home() {
           keywords: userKeywordsArray,
         };
         const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
-        setKeywordValueMapResult(keywordValuesOutput); // Stores { extractedKeywordEntries: [...] }
+        setKeywordValueMapResult(keywordValuesOutput); 
       } else {
         setKeywordValueMapResult({ extractedKeywordEntries: [] });
       }
       
-
       const foundKws: string[] = [];
       const lowerCombinedText = combinedTextForProcessing.toLowerCase();
       userKeywordsArray.forEach(kw => {
@@ -226,12 +266,18 @@ export default function Home() {
             setManualText={setManualText}
             clearAllInputs={clearAllInputs}
           />
-          <KeywordEntry keywords={keywords} setKeywords={setKeywords} />
+          <KeywordEntry 
+            keywords={keywords} 
+            setKeywords={setKeywords}
+            keywordHistory={keywordHistory}
+            onRemoveKeywordFromHistory={handleRemoveKeywordFromHistory}
+            onAddKeywordFromSuggestion={handleAddKeywordFromSuggestion}
+          />
 
           <div className="text-center pt-4">
             <Button 
               onClick={handleProcess} 
-              disabled={processing || (!manualText.trim() && selectedFiles.length === 0)}
+              disabled={processing || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
               className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
               aria-live="polite"
@@ -252,7 +298,7 @@ export default function Home() {
             <ResultsDisplay 
               summary={summaryResult}
               enrichedKeywords={enrichedKeywordsResult}
-              extractedKeywordEntries={keywordValueMapResult?.extractedKeywordEntries} // Pass the array of entries
+              extractedKeywordEntries={keywordValueMapResult?.extractedKeywordEntries}
               userKeywords={userKeywordsArray}
               foundKeywordsInText={foundKeywordsInText}
               fullExtractedText={finalProcessedText}
@@ -269,4 +315,3 @@ export default function Home() {
     </div>
   );
 }
-

@@ -38,6 +38,8 @@
   "keywordsLabel": "Palavras-chave",
   "keywordsPlaceholder": "ex: fatura, pagamento, data de vencimento, projeto alfa",
   "keywordsAriaLabel": "Insira as palavras-chave separadas por vírgulas",
+  "keywordHistoryTitle": "Sugestões (Histórico)",
+  "removeKeywordFromHistoryAriaLabel": "Remover {{keyword}} do histórico",
   "resultsDisplayCardTitle": "Resultados do Processamento",
   "resultsDisplayCardDescription": "Revise os insights extraídos e exporte os dados.",
   "summaryTitle": "Resumo",
@@ -58,4 +60,3 @@
   "toastFeatureNotImplementedTitle": "Funcionalidade Não Implementada",
   "toastFeatureNotImplementedDescription": "Salvar no Firebase não está implementado nesta Prova de Conceito."
 }
-
