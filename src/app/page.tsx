@@ -43,10 +43,10 @@ let app;
 // }
 
 
-let genAI: GoogleGenerativeAI | null = null;
+let genAIInstance: GoogleGenerativeAI | null = null;
 if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
   try {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    genAIInstance = new GoogleGenerativeAI(GEMINI_API_KEY);
   } catch (error) {
     console.error("Error initializing GoogleGenerativeAI:", error);
   }
@@ -108,15 +108,12 @@ export default function Home() {
 
   const fileToGenerativePart = async (file: File): Promise<Part | null> => {
     if (!file.type.startsWith("image/")) {
-      // For non-image files, we currently don't send them directly for OCR
-      // You might want to add client-side PDF text extraction here (e.g., using pdf.js)
-      // and then send the text. Or, handle them differently.
       toast({
-        title: `File type not directly supported for OCR`,
-        description: `${file.name} (${file.type}) will not be processed for text extraction by Gemini in this example.`,
+        title: `File type not directly supported for direct Gemini OCR`,
+        description: `${file.name} (${file.type}) will be skipped for direct OCR. Consider client-side text extraction for non-image files.`,
         variant: "default"
       });
-      return null; // Or return a text part with a message
+      return null;
     }
     const base64EncodedData = await new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -169,7 +166,7 @@ export default function Home() {
     setInputSource("");
     setProcessedFileNames([]);
 
-    if (!genAI || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
+    if (!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
       toast({
         title: "Gemini API Not Configured",
         description: "Please provide your Gemini API Key in src/app/page.tsx.",
@@ -183,18 +180,14 @@ export default function Home() {
     let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro-latest", // Changed to gemini-1.5-pro-latest
+    const model = genAIInstance.getGenerativeModel({ 
+      model: "gemini-2.0-flash", // Changed model
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
       ],
-      generationConfig: {
-        // Ensure JSON output for keyword extraction if your prompt requests it
-        // responseMimeType: "application/json", // Use if your prompt guarantees JSON output
-      }
     });
 
     if (selectedFiles.length > 0) {
@@ -213,7 +206,6 @@ export default function Home() {
         if (part) {
           imageParts.push(part);
         } else {
-          // Handle non-image files or files that couldn't be converted
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} not directly performed by Gemini in this request.]\n--- END OF FILE: ${file.name} ---`;
         }
       }
@@ -301,15 +293,12 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If a keyword is present but no specific values are found, return an empty array for it.`;
         
         try {
-          // Forcing JSON output requires specific model versions and configurations.
-          // Let's try to get structured text and parse, more robust for general models.
           const valueResultObj = await model.generateContent(valueExtractionPrompt);
           const valueResponse = await valueResultObj.response;
           let textResponse = valueResponse.text();
 
           let parsedValues: Record<string, string[]> = {};
           try {
-            // Attempt to extract JSON part if it's embedded in markdown
             const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
             if (jsonMatch && jsonMatch[1]) {
               textResponse = jsonMatch[1];
@@ -317,15 +306,12 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             parsedValues = JSON.parse(textResponse);
           } catch (jsonError) {
             console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
-            // Fallback: for each found keyword, try a direct question if JSON parsing fails.
-            // This is less efficient but more robust if the initial JSON prompt fails.
             for (const kw of foundKws) {
               const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
               const kwResult = await model.generateContent(directQuestionPrompt);
               const kwResponse = await kwResult.response;
               const kwText = kwResponse.text();
               if (kwText && !kwText.toLowerCase().includes("none found")) {
-                // Simple split by newline or comma, can be improved
                 parsedValues[kw] = kwText.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
               } else {
                 parsedValues[kw] = [];
@@ -408,14 +394,14 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           />
 
           <div className="text-center pt-4">
-            {(!genAI || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") && (
+            {(!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") && (
               <p className="text-destructive text-sm mb-2">
                 Warning: Gemini API Key not configured in src/app/page.tsx. AI features will not work.
               </p>
             )}
             <Button 
               onClick={handleProcess} 
-              disabled={processing || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0 || (!genAI || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE")}
+              disabled={processing || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0 || (!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE")}
               size="lg"
               className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
               aria-live="polite"
