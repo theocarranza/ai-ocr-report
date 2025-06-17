@@ -379,10 +379,8 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
       };
 
-      if (!firebaseConfigValues.apiKey || !firebaseConfigValues.projectId ||
-          firebaseConfigValues.apiKey === "YOUR_FIREBASE_API_KEY_HERE" || // Check against placeholder
-          firebaseConfigValues.projectId === "YOUR_FIREBASE_PROJECT_ID_HERE") {
-        console.error("Firebase config is missing or uses placeholder values in environment variables.");
+      if (!firebaseConfigValues.apiKey || !firebaseConfigValues.projectId) {
+        console.error("Firebase config is missing critical values (apiKey or projectId) in environment variables.");
         toast({
           title: t('toastFirebaseConfigMissingTitle'),
           description: t('toastFirebaseConfigMissingDescription'),
@@ -549,3 +547,4 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
+
