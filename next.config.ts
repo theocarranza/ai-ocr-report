@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    unoptimized: true, // Required for static export (next export)
   },
   experimental: {
   }

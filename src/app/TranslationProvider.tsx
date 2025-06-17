@@ -1,6 +1,4 @@
 
-'use server';
-
 import type { ReactNode } from 'react';
 import { createInstance, type i18n as I18nInstanceType } from 'i18next';
 import { getOptions } from './i18n/settings';
