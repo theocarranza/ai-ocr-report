@@ -1,7 +1,8 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: 'export',
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,11 +19,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // The i18n object for Next.js built-in i18n is removed
-  // as we are attempting a manual i18next setup.
-  // This might have been conflicting.
   experimental: {
-    // allowedDevOrigins: ["*.cloudworkstations.dev"], // Removed this line
   }
 };
 

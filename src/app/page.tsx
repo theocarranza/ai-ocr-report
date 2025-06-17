@@ -8,11 +8,13 @@ import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
-import { summarizeFileContent, type SummarizeFileContentInput, type SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
-import { enrichKeywords, type EnrichKeywordsInput, type EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
-import { extractTextFromDocument, type ExtractTextFromDocumentInput, type ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
-import { extractKeywordValues, type ExtractKeywordValuesInput, type ExtractKeywordValuesOutput, type KeywordValuesEntry } from '@/ai/flows/extract-keyword-values-flow';
 import { Loader2, Sparkles, FileType } from 'lucide-react';
+
+// Import types, but not the functions themselves
+import type { SummarizeFileContentInput, SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
+import type { EnrichKeywordsInput, EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
+import type { ExtractTextFromDocumentInput, ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
+import type { ExtractKeywordValuesInput, ExtractKeywordValuesOutput } from '@/ai/flows/extract-keyword-values-flow';
 
 interface OcrFileData {
   name: string;
@@ -32,7 +34,7 @@ export default function Home() {
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
   const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); 
   const [foundKeywordsInText, setFoundKeywordsInText] = useState<string[]>([]);
-  const [finalProcessedTextForOutput, setFinalProcessedTextForOutput] = useState<string>(""); // For UI display and JSON export
+  const [finalProcessedTextForOutput, setFinalProcessedTextForOutput] = useState<string>("");
   const [inputSource, setInputSource] = useState<string>(""); 
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
@@ -103,6 +105,23 @@ export default function Home() {
     });
   };
 
+  // Helper function to call Firebase Functions
+  async function callFirebaseFunction<TInput, TOutput>(functionName: string, payload: TInput): Promise<TOutput> {
+    const response = await fetch(`/api/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(`Function ${functionName} failed: ${errorBody.message || response.statusText}`);
+    }
+    return response.json();
+  }
+
+
   const handleProcess = async () => {
     setProcessing(true);
     setSummaryResult(null);
@@ -114,8 +133,8 @@ export default function Home() {
     setProcessedFileNames([]);
 
     let currentInputSource = "";
-    let textForAiProcessing = ""; // Text with delimiters for AI
-    let cleanTextForOutput = ""; // Text without delimiters for final output
+    let textForAiProcessing = ""; 
+    let cleanTextForOutput = ""; 
     const currentFileNamesProcessed: string[] = [];
 
     if (selectedFiles.length > 0) {
@@ -130,25 +149,22 @@ export default function Home() {
           currentFileNamesProcessed.push(file.name);
           const documentDataUri = await fileToDataUri(file);
           const ocrInput: ExtractTextFromDocumentInput = { documentDataUri };
-          const ocrOutput = await extractTextFromDocument(ocrInput);
+          const ocrOutput = await callFirebaseFunction<ExtractTextFromDocumentInput, ExtractTextFromDocumentOutput>('extractTextFromDocument', ocrInput);
           ocrResultsFromFileUploads.push({ name: file.name, extractedText: ocrOutput.extractedText });
         }
         setOcrFileResults(ocrResultsFromFileUploads);
         
-        // Prepare text for AI (with delimiters)
         const textsWithDelimiters = ocrResultsFromFileUploads.map(
           res => `--- START OF FILE: ${res.name} ---\n${res.extractedText}\n--- END OF FILE: ${res.name} ---`
         );
         textForAiProcessing = textsWithDelimiters.join("\n\n");
-
-        // Prepare clean text for output
         cleanTextForOutput = ocrResultsFromFileUploads.map(res => res.extractedText).join("\n\n");
 
       } catch (ocrError) {
         console.error("OCR error:", ocrError);
         toast({
           title: t('toastOcrErrorTitle'),
-          description: ocrError instanceof Error ? ocrError.message : t('toastOcrErrorDescription'),
+          description: ocrError instanceof Error ? ocrError.message : String(ocrError),
           variant: "destructive",
         });
         setProcessing(false);
@@ -198,30 +214,30 @@ export default function Home() {
     setProcessedFileNames(currentFileNamesProcessed);
 
     try {
-      const summaryInput: SummarizeFileContentInput = { fileText: textForAiProcessing }; // Use text with delimiters for AI
-      const summaryOutput = await summarizeFileContent(summaryInput);
+      const summaryInput: SummarizeFileContentInput = { fileText: textForAiProcessing };
+      const summaryOutput = await callFirebaseFunction<SummarizeFileContentInput, SummarizeFileContentOutput>('summarizeFileContent', summaryInput);
       setSummaryResult(summaryOutput);
 
       const enrichmentInput: EnrichKeywordsInput = { 
-        documentContent: textForAiProcessing, // Use text with delimiters for AI
+        documentContent: textForAiProcessing,
         existingKeywords: userKeywordsArray 
       };
-      const enrichmentOutput = await enrichKeywords(enrichmentInput);
+      const enrichmentOutput = await callFirebaseFunction<EnrichKeywordsInput, EnrichKeywordsOutput>('enrichKeywords', enrichmentInput);
       setEnrichedKeywordsResult(enrichmentOutput);
 
       if (userKeywordsArray.length > 0) {
         const keywordValuesInput: ExtractKeywordValuesInput = {
-          documentText: textForAiProcessing, // Use text with delimiters for AI
+          documentText: textForAiProcessing,
           keywords: userKeywordsArray,
         };
-        const keywordValuesOutput = await extractKeywordValues(keywordValuesInput);
+        const keywordValuesOutput = await callFirebaseFunction<ExtractKeywordValuesInput, ExtractKeywordValuesOutput>('extractKeywordValues', keywordValuesInput);
         setKeywordValueMapResult(keywordValuesOutput); 
       } else {
         setKeywordValueMapResult({ extractedKeywordEntries: [] });
       }
       
       const foundKws: string[] = [];
-      const lowerCleanTextForSearch = cleanTextForOutput.toLowerCase(); // Search in clean text
+      const lowerCleanTextForSearch = cleanTextForOutput.toLowerCase();
       userKeywordsArray.forEach(kw => {
         if (lowerCleanTextForSearch.includes(kw.toLowerCase())) {
           foundKws.push(kw);
@@ -238,7 +254,7 @@ export default function Home() {
       console.error("Processing error (summary/enrichment/keyword-values):", error);
       toast({
         title: t('toastInsightGenerationErrorTitle'),
-        description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
+        description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
       setSummaryResult(null);
@@ -325,4 +341,3 @@ export default function Home() {
     </div>
   );
 }
-
