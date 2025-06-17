@@ -18,7 +18,9 @@ next-env.d.ts
 /.next/
 /out/
 
+.firebase/*
 /.firebase/
+
 
 # Production
 /build
