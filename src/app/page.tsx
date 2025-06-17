@@ -29,6 +29,7 @@ const firebaseConfig: FirebaseOptions = {
 // You MUST replace this with your actual Gemini API Key.
 // For production, DO NOT hardcode API keys in client-side code.
 // This example is for local development or very restricted environments.
+// Ensure your API key is secured and has appropriate restrictions.
 const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
 
 let app;
@@ -52,7 +53,6 @@ if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
 } else {
   console.warn("Gemini API Key is not configured. AI features will be unavailable.");
 }
-
 
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
@@ -106,7 +106,18 @@ export default function Home() {
     });
   };
 
-  const fileToGenerativePart = async (file: File): Promise<Part> => {
+  const fileToGenerativePart = async (file: File): Promise<Part | null> => {
+    if (!file.type.startsWith("image/")) {
+      // For non-image files, we currently don't send them directly for OCR
+      // You might want to add client-side PDF text extraction here (e.g., using pdf.js)
+      // and then send the text. Or, handle them differently.
+      toast({
+        title: `File type not directly supported for OCR`,
+        description: `${file.name} (${file.type}) will not be processed for text extraction by Gemini in this example.`,
+        variant: "default"
+      });
+      return null; // Or return a text part with a message
+    }
     const base64EncodedData = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
@@ -173,13 +184,17 @@ export default function Home() {
     const currentFileNamesProcessed: string[] = [];
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-1.5-pro-latest", // Changed to gemini-1.5-pro-latest
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-      ]
+      ],
+      generationConfig: {
+        // Ensure JSON output for keyword extraction if your prompt requests it
+        // responseMimeType: "application/json", // Use if your prompt guarantees JSON output
+      }
     });
 
     if (selectedFiles.length > 0) {
@@ -188,35 +203,33 @@ export default function Home() {
         title: t('toastProcessingFilesTitle', {count: selectedFiles.length}),
         description: "Sending files to Gemini for text extraction..."
       });
-      try {
-        for (const file of selectedFiles) {
-          currentFileNamesProcessed.push(file.name);
-          let extractedText = `[Could not extract text from ${file.name}. This model version might not support this file type directly for OCR, or an error occurred.]`;
-
-          if (file.type.startsWith("image/")) { // Only attempt direct OCR for images
-            const imagePart = await fileToGenerativePart(file);
-            const result = await model.generateContent(["Extract all text from this image.", imagePart]);
-            const response = await result.response;
-            extractedText = response.text();
-          } else {
-            // For non-images, you might want to add a message or try a different extraction method
-            // For now, we'll just use the placeholder message
-            extractedText = `[File type ${file.type} not processed for OCR by Gemini in this example. Text for ${file.name} was not extracted.]`;
-          }
-          
-          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n${extractedText}\n--- END OF FILE: ${file.name} ---`;
+      
+      const imageParts: Part[] = [];
+      const textExtractionPrompts: string[] = ["Extract all text from the following document(s). If there are multiple documents or images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order."];
+      
+      for (const file of selectedFiles) {
+        currentFileNamesProcessed.push(file.name);
+        const part = await fileToGenerativePart(file);
+        if (part) {
+          imageParts.push(part);
+        } else {
+          // Handle non-image files or files that couldn't be converted
+          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} not directly performed by Gemini in this request.]\n--- END OF FILE: ${file.name} ---`;
         }
-      } catch (error) {
-        console.error("Gemini text extraction error:", error);
-        toast({
-          title: t('toastOcrErrorTitle'),
-          description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
-          variant: "destructive",
-        });
-        // Continue with manual text if any, or stop if this was the only source
-        if (!manualText.trim()) {
-          setProcessing(false);
-          return;
+      }
+
+      if (imageParts.length > 0) {
+        try {
+          const result = await model.generateContent([...textExtractionPrompts, ...imageParts]);
+          const response = await result.response;
+          combinedTextContent += (combinedTextContent ? "\n\n" : "") + response.text();
+        } catch (error) {
+          console.error("Gemini text extraction error:", error);
+          toast({
+            title: t('toastOcrErrorTitle'),
+            description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
+            variant: "destructive",
+          });
         }
       }
     }
@@ -231,7 +244,7 @@ export default function Home() {
     setInputSource(currentInputSource || "unknown");
     setProcessedFileNames(currentFileNamesProcessed);
 
-    if (!combinedTextContent) {
+    if (!combinedTextContent.trim()) {
       toast({
         title: t('toastNoInputProvidedTitle'),
         description: t('toastNoInputProvidedDescription'),
@@ -282,45 +295,50 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       
       const extractedEntries: KeywordValuesEntry[] = [];
       if (foundKws.length > 0) {
-        // Example: Ask Gemini to extract values for all found keywords in one go
-        const valueExtractionPrompt = `For each of the following keywords found in the text, list any associated values or phrases. 
+        const valueExtractionPrompt = `For each of the following keywords, extract any associated values or relevant phrases found in the text. 
         Keywords: ${foundKws.join(", ")}. 
         Text: "${combinedTextContent}".
-        Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If no specific values are found for a keyword but it's present, return an empty array for it.`;
+        Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If a keyword is present but no specific values are found, return an empty array for it.`;
         
         try {
+          // Forcing JSON output requires specific model versions and configurations.
+          // Let's try to get structured text and parse, more robust for general models.
           const valueResultObj = await model.generateContent(valueExtractionPrompt);
           const valueResponse = await valueResultObj.response;
-          const textResponse = valueResponse.text();
-          // Attempt to parse the JSON response
+          let textResponse = valueResponse.text();
+
           let parsedValues: Record<string, string[]> = {};
           try {
-             // Try to extract JSON part if it's embedded
+            // Attempt to extract JSON part if it's embedded in markdown
             const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
             if (jsonMatch && jsonMatch[1]) {
-              parsedValues = JSON.parse(jsonMatch[1]);
-            } else {
-              parsedValues = JSON.parse(textResponse); // Assume direct JSON
+              textResponse = jsonMatch[1];
             }
+            parsedValues = JSON.parse(textResponse);
           } catch (jsonError) {
-            console.error("Failed to parse keyword values JSON from Gemini:", jsonError, "Raw response:", textResponse);
-            // Fallback: if JSON parsing fails, populate based on simple presence
-             userKeywordsArray.forEach(kw => {
-              extractedEntries.push({
-                keyword: kw,
-                foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
-              });
-            });
+            console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
+            // Fallback: for each found keyword, try a direct question if JSON parsing fails.
+            // This is less efficient but more robust if the initial JSON prompt fails.
+            for (const kw of foundKws) {
+              const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
+              const kwResult = await model.generateContent(directQuestionPrompt);
+              const kwResponse = await kwResult.response;
+              const kwText = kwResponse.text();
+              if (kwText && !kwText.toLowerCase().includes("none found")) {
+                // Simple split by newline or comma, can be improved
+                parsedValues[kw] = kwText.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
+              } else {
+                parsedValues[kw] = [];
+              }
+            }
           }
           
-          if (Object.keys(parsedValues).length > 0) {
-             userKeywordsArray.forEach(kw => {
-              extractedEntries.push({
-                keyword: kw,
-                foundValues: parsedValues[kw] || (foundKws.includes(kw) ? [] : []) // If found but no specific value, empty array. If not found, also empty.
-              });
+          userKeywordsArray.forEach(kw => {
+            extractedEntries.push({
+              keyword: kw,
+              foundValues: parsedValues[kw] || []
             });
-          }
+          });
 
         } catch (valError) {
           console.error(`Error extracting values for keywords:`, valError);
@@ -435,3 +453,4 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
+
