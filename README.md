@@ -1,7 +1,7 @@
 
 # File Insights ✨
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/github/package-json/v/theocarranza/ai-ocr-report.svg)](package.json)
 
 File Insights is a web application designed to help users extract valuable information from their documents. Users can upload files (images, PDFs), extract text using AI-powered OCR, search for specific keywords, and export the structured data as a JSON file.
 
