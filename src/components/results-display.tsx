@@ -18,9 +18,10 @@ interface ResultsDisplayProps {
   extractedKeywordEntries?: ExtractedKeywordEntry[] | null;
   userKeywords: string[];
   foundKeywordsInText: string[];
-  fullExtractedTextForOutput: string; // Changed prop name
+  fullExtractedTextForOutput: string;
   source: string;
   filesProcessed?: string[];
+  onSaveReport: (reportData: any) => void; // New prop
 }
 
 export function ResultsDisplay({ 
@@ -29,9 +30,10 @@ export function ResultsDisplay({
   extractedKeywordEntries,
   userKeywords,
   foundKeywordsInText,
-  fullExtractedTextForOutput, // Changed prop name
+  fullExtractedTextForOutput,
   source,
-  filesProcessed
+  filesProcessed,
+  onSaveReport // Destructure new prop
 }: ResultsDisplayProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -67,14 +69,6 @@ export function ResultsDisplay({
     toast({
       title: t('toastJsonExportedTitle'),
       description: t('toastJsonExportedDescription'),
-      variant: "default",
-    });
-  };
-
-  const handleSaveToFirebase = () => {
-    toast({
-      title: t('toastFeatureNotImplementedTitle'),
-      description: t('toastFeatureNotImplementedDescription'),
       variant: "default",
     });
   };
@@ -169,7 +163,11 @@ export function ResultsDisplay({
           <Button onClick={handleDownloadJson} className="w-full sm:w-auto bg-accent hover:bg-accent/90">
             <Download className="mr-2 h-4 w-4" /> {t('downloadJsonButton')}
           </Button>
-          <Button onClick={handleSaveToFirebase} variant="outline" className="w-full sm:w-auto">
+          <Button 
+            onClick={() => onSaveReport(generatedJson)} 
+            variant="outline" 
+            className="w-full sm:w-auto"
+          >
             <Database className="mr-2 h-4 w-4" /> {t('saveToFirebaseButton')}
           </Button>
         </div>
@@ -177,4 +175,3 @@ export function ResultsDisplay({
     </Card>
   );
 }
-

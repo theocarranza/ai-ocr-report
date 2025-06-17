@@ -15,22 +15,8 @@ import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon } from 'lucide-reac
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
-// Firebase app initialization (optional if only using Google AI SDK and no other Firebase services)
-// import { initializeApp, type FirebaseOptions } from 'firebase/app';
-// const firebaseConfig: FirebaseOptions = {
-// apiKey: "YOUR_FIREBASE_API_KEY", // Replace if using other Firebase services
-// authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
-// projectId: "YOUR_FIREBASE_PROJECT_ID",
-//   // ... other config
-// };
-// let app;
-// if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
-//   try {
-//     app = initializeApp(firebaseConfig);
-//   } catch (e) {
-//     console.warn("Firebase already initialized or config is missing/invalid.", e);
-//   }
-// }
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getFirestore, addDoc, collection, serverTimestamp, type Firestore } from 'firebase/firestore';
 
 
 interface SummarizeOutput { summary: string; }
@@ -58,6 +44,9 @@ export default function Home() {
   const [apiKeyInput, setApiKeyInput] = useState<string>("");
   const [genAI, setGenAI] = useState<GoogleGenerativeAI | null>(null);
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
+
+  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
+  const [firestore, setFirestore] = useState<Firestore | null>(null);
 
   const { toast } = useToast();
 
@@ -164,9 +153,9 @@ export default function Home() {
     }
 
     let currentGenAI = genAI;
-    if (!currentGenAI || !isApiKeyValid) { // Re-initialize if not set or was marked invalid
+    if (!currentGenAI || !isApiKeyValid) { 
         currentGenAI = initializeAiSdk(apiKeyInput);
-        if (!currentGenAI) { // If initialization still fails
+        if (!currentGenAI) { 
             setProcessing(false);
             return;
         }
@@ -211,7 +200,6 @@ export default function Home() {
           const part = await fileToGenerativePart(file);
           imageFileParts.push(part);
         } else {
-          // For non-image files, add their text content directly or a placeholder
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} files is handled separately or not supported by this image OCR method.]\n--- END OF FILE: ${file.name} ---`;
           toast({
             title: `File type not an image`,
@@ -374,6 +362,71 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       setProcessing(false);
     }
   };
+
+  const handleSaveReportToFirestore = async (reportData: any) => {
+    toast({ title: t('toastSavingTitle'), description: t('toastSavingDescription') });
+
+    let appInstance = firebaseApp;
+    let dbInstance = firestore;
+
+    if (!appInstance || !dbInstance) {
+      const firebaseConfigValues = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      };
+
+      if (!firebaseConfigValues.apiKey || !firebaseConfigValues.projectId ||
+          firebaseConfigValues.apiKey === "YOUR_FIREBASE_API_KEY_HERE" || // Check against placeholder
+          firebaseConfigValues.projectId === "YOUR_FIREBASE_PROJECT_ID_HERE") {
+        console.error("Firebase config is missing or uses placeholder values in environment variables.");
+        toast({
+          title: t('toastFirebaseConfigMissingTitle'),
+          description: t('toastFirebaseConfigMissingDescription'),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        appInstance = initializeApp(firebaseConfigValues);
+        dbInstance = getFirestore(appInstance);
+        setFirebaseApp(appInstance);
+        setFirestore(dbInstance);
+      } catch (error) {
+        console.error("Error initializing Firebase:", error);
+        toast({
+          title: t('toastSaveErrorTitle'),
+          description: error instanceof Error ? error.message : t('toastFirebaseConfigMissingDescription'),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!dbInstance) {
+        toast({ title: t('toastSaveErrorTitle'), description: "Firestore not initialized.", variant: "destructive" });
+        return;
+    }
+
+    try {
+      await addDoc(collection(dbInstance, "reports"), {
+        ...reportData,
+        createdAt: serverTimestamp(),
+      });
+      toast({ title: t('toastSaveSuccessTitle'), description: t('toastSaveSuccessDescription') });
+    } catch (error) {
+      console.error("Error saving to Firestore:", error);
+      toast({
+        title: t('toastSaveErrorTitle'),
+        description: error instanceof Error ? error.message : "Failed to save report to Firestore.",
+        variant: "destructive",
+      });
+    }
+  };
   
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
@@ -409,9 +462,6 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                 value={apiKeyInput}
                 onChange={(e) => {
                   setApiKeyInput(e.target.value);
-                  // Attempt to initialize SDK on change, or when process is clicked
-                  // For now, we'll initialize primarily on process to avoid too many re-inits
-                  // but also clear validation status if key changes
                   setIsApiKeyValid(null); 
                   if (e.target.value.trim()) {
                     initializeAiSdk(e.target.value);
@@ -487,6 +537,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
               fullExtractedTextForOutput={finalProcessedTextForOutput}
               source={inputSource}
               filesProcessed={processedFileNames}
+              onSaveReport={handleSaveReportToFirestore}
             />
           )}
         </main>
