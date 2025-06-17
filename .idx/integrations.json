@@ -1,5 +1,6 @@
 {
   "firebase_hosting": {
     "deploymentHostingUrl": "https://file-insights-aqksp.web.app"
-  }
+  },
+  "gemini_api": {}
 }
