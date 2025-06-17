@@ -200,7 +200,7 @@ Contributions are welcome! If you have suggestions or want to improve the app, p
 
 MIT License
 
-Copyright (c) 2024 [Your Name or Organization Here]
+Copyright (c) 2024 Monolith Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
