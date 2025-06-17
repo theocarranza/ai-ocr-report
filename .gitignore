@@ -17,6 +17,7 @@ next-env.d.ts
 # Next.js
 /.next/
 /out/
+/.firebase/
 
 .firebase/*
 /.firebase/
