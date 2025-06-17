@@ -54,7 +54,7 @@
   "keywordValuesExtractedTitle": "Valores Extraídos por Palavra-chave",
   "noValuesFoundForKeyword": "Nenhum valor encontrado para esta palavra-chave.",
   "downloadJsonButton": "Baixar JSON",
-  "saveToFirebaseButton": "Salvar no Firebase (Prova de Conceito)",
+  "saveToFirebaseButton": "Salvar no Firebase",
   "toastJsonExportedTitle": "JSON Exportado",
   "toastJsonExportedDescription": "Os resultados foram baixados como um arquivo JSON.",
   "toastFeatureNotImplementedTitle": "Funcionalidade Não Implementada",
@@ -68,5 +68,14 @@
   "toastApiKeyMissingTitle": "Chave da API Ausente",
   "toastApiKeyMissingDescription": "Por favor, insira sua chave da API Gemini para continuar.",
   "toastApiKeyInitErrorTitle": "Erro na Chave da API",
-  "toastApiKeyInitErrorDescription": "Falha ao inicializar a API Gemini. Verifique sua chave e tente novamente."
+  "toastApiKeyInitErrorDescription": "Falha ao inicializar a API Gemini. Verifique sua chave e tente novamente.",
+  "apiKeyAccepted": "Chave da API aceita e SDK inicializado.",
+  "toastSavingTitle": "Salvando Dados...",
+  "toastSavingDescription": "Aguarde enquanto os dados são salvos no Firebase.",
+  "toastSaveSuccessTitle": "Dados Salvos",
+  "toastSaveSuccessDescription": "Os dados foram salvos com sucesso no Firebase.",
+  "toastSaveErrorTitle": "Erro ao Salvar Dados",
+  "toastSaveErrorDescription": "Ocorreu um erro ao salvar os dados. Tente novamente.",
+  "toastFirebaseConfigMissingTitle": "Configuração do Firebase Ausente",
+  "toastFirebaseConfigMissingDescription": "Não é possível salvar. Verifique se as configurações do Firebase estão corretas em seu ambiente."
 }
