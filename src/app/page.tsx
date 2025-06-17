@@ -107,13 +107,14 @@ export default function Home() {
   };
 
   const fileToGenerativePart = async (file: File): Promise<Part | null> => {
+    // Basic check for common image types
     if (!file.type.startsWith("image/")) {
       toast({
-        title: `File type not directly supported for direct Gemini OCR`,
-        description: `${file.name} (${file.type}) will be skipped for direct OCR. Consider client-side text extraction for non-image files.`,
+        title: `File type not an image`,
+        description: `${file.name} (${file.type}) will be skipped for direct Gemini OCR. Only images are currently supported.`,
         variant: "default"
       });
-      return null;
+      return null; 
     }
     const base64EncodedData = await new Promise<string>((resolve) => {
       const reader = new FileReader();
@@ -181,7 +182,7 @@ export default function Home() {
     const currentFileNamesProcessed: string[] = [];
 
     const model = genAIInstance.getGenerativeModel({ 
-      model: "gemini-2.0-flash", // Changed model
+      model: "gemini-1.5-flash-latest", 
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -197,22 +198,25 @@ export default function Home() {
         description: "Sending files to Gemini for text extraction..."
       });
       
-      const imageParts: Part[] = [];
-      const textExtractionPrompts: string[] = ["Extract all text from the following document(s). If there are multiple documents or images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order."];
+      const imagePartsAndPrompts: (Part | string)[] = ["Extract all text from the following image(s). If there are multiple images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order."];
       
       for (const file of selectedFiles) {
         currentFileNamesProcessed.push(file.name);
         const part = await fileToGenerativePart(file);
         if (part) {
-          imageParts.push(part);
+          imagePartsAndPrompts.push(part);
         } else {
-          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} not directly performed by Gemini in this request.]\n--- END OF FILE: ${file.name} ---`;
+          // For non-image files or files that couldn't be processed, add a placeholder.
+          // You might want to implement client-side text extraction for PDFs here
+          // or inform the user that these files can't be processed by this method.
+          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for this file type (${file.type}) is not directly supported by this client-side image OCR method.]\n--- END OF FILE: ${file.name} ---`;
         }
       }
 
-      if (imageParts.length > 0) {
+      // Only call Gemini if there are actual image parts to process
+      if (imagePartsAndPrompts.length > 1) { // More than just the initial prompt string
         try {
-          const result = await model.generateContent([...textExtractionPrompts, ...imageParts]);
+          const result = await model.generateContent({contents: [{role: "user", parts: imagePartsAndPrompts.filter(p => typeof p === 'string' || (p as Part).inlineData) as Part[]}]});
           const response = await result.response;
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + response.text();
         } catch (error) {
@@ -222,6 +226,7 @@ export default function Home() {
             description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
             variant: "destructive",
           });
+          // Do not return here, allow manual text to still be processed
         }
       }
     }
@@ -299,6 +304,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
           let parsedValues: Record<string, string[]> = {};
           try {
+            // Attempt to extract JSON from markdown code block if present
             const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
             if (jsonMatch && jsonMatch[1]) {
               textResponse = jsonMatch[1];
@@ -306,6 +312,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             parsedValues = JSON.parse(textResponse);
           } catch (jsonError) {
             console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
+            // Fallback: Ask for each keyword individually if structured JSON fails
             for (const kw of foundKws) {
               const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
               const kwResult = await model.generateContent(directQuestionPrompt);
@@ -322,20 +329,22 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           userKeywordsArray.forEach(kw => {
             extractedEntries.push({
               keyword: kw,
-              foundValues: parsedValues[kw] || []
+              foundValues: parsedValues[kw] || [] // Use parsed values or empty array
             });
           });
 
         } catch (valError) {
           console.error(`Error extracting values for keywords:`, valError);
+           // Fallback if the entire value extraction attempt fails
            userKeywordsArray.forEach(kw => {
             extractedEntries.push({
               keyword: kw,
-              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
+              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : [] // Indicate if keyword was found but values failed
             });
           });
         }
       } else {
+         // If no user keywords were found in the text at all
          userKeywordsArray.forEach(kw => {
           extractedEntries.push({ keyword: kw, foundValues: [] });
         });
