@@ -15,24 +15,23 @@ import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon } from 'lucide-reac
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
-// Firebase initialization is optional if only using Google AI SDK directly
+// Firebase app initialization (optional if only using Google AI SDK and no other Firebase services)
 // import { initializeApp, type FirebaseOptions } from 'firebase/app';
 // const firebaseConfig: FirebaseOptions = {
-//   apiKey: "YOUR_API_KEY", // Replace if using other Firebase services
-//   authDomain: "YOUR_AUTH_DOMAIN",
-//   projectId: "YOUR_PROJECT_ID",
-//   storageBucket: "YOUR_STORAGE_BUCKET",
-//   messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-//   appId: "YOUR_APP_ID",
+// apiKey: "YOUR_FIREBASE_API_KEY", // Replace if using other Firebase services
+// authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+// projectId: "YOUR_FIREBASE_PROJECT_ID",
+//   // ... other config
 // };
 // let app;
-// if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+// if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
 //   try {
 //     app = initializeApp(firebaseConfig);
 //   } catch (e) {
 //     console.warn("Firebase already initialized or config is missing/invalid.", e);
 //   }
 // }
+
 
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
@@ -60,7 +59,6 @@ export default function Home() {
   const [genAI, setGenAI] = useState<GoogleGenerativeAI | null>(null);
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
 
-
   const { toast } = useToast();
 
   useEffect(() => {
@@ -73,17 +71,22 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem('keywordHistory', JSON.stringify(keywordHistory));
   }, [keywordHistory]);
-
+  
   const initializeAiSdk = useCallback((key: string) => {
     if (!key.trim()) {
         setGenAI(null);
         setIsApiKeyValid(false);
+        toast({
+            title: t('toastApiKeyMissingTitle'),
+            description: t('toastApiKeyMissingDescription'),
+            variant: "destructive",
+        });
         return null;
     }
     try {
         const instance = new GoogleGenerativeAI(key);
         setGenAI(instance);
-        setIsApiKeyValid(true); // Assume valid until a call fails
+        setIsApiKeyValid(true); 
         return instance;
     } catch (error) {
         console.error("Error initializing GoogleGenerativeAI:", error);
@@ -97,21 +100,10 @@ export default function Home() {
         return null;
     }
   }, [t, toast]);
-
-  // Effect to re-initialize SDK if API key input changes
-  useEffect(() => {
-    if (apiKeyInput) {
-        initializeAiSdk(apiKeyInput);
-    } else {
-        setGenAI(null);
-        setIsApiKeyValid(null); // Reset validation status if key is cleared
-    }
-  }, [apiKeyInput, initializeAiSdk]);
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
     setManualText("");
-    // setKeywords(""); // User might want to keep keywords
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
     setKeywordValueMapResult(null);
@@ -125,15 +117,7 @@ export default function Home() {
     });
   };
 
-  const fileToGenerativePart = async (file: File): Promise<Part | null> => {
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: `File type not an image`,
-        description: `${file.name} (${file.type}) will be skipped for direct Gemini OCR. Only images are currently supported.`,
-        variant: "default"
-      });
-      return null; 
-    }
+  const fileToGenerativePart = async (file: File): Promise<Part> => {
     const base64EncodedData = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
@@ -149,13 +133,7 @@ export default function Home() {
 
   const updateKeywordHistory = (newKeywords: string[]) => {
     setKeywordHistory(prevHistory => {
-      const updatedHistory = [...prevHistory];
-      newKeywords.forEach(kw => {
-        const trimmedKw = kw.trim();
-        if (trimmedKw && !updatedHistory.includes(trimmedKw)) {
-          updatedHistory.unshift(trimmedKw); 
-        }
-      });
+      const updatedHistory = [...new Set([ ...newKeywords.map(kw => kw.trim()).filter(Boolean), ...prevHistory])];
       return updatedHistory.slice(0, 20); 
     });
   };
@@ -186,14 +164,14 @@ export default function Home() {
     }
 
     let currentGenAI = genAI;
-    if (!currentGenAI || !isApiKeyValid) {
+    if (!currentGenAI || !isApiKeyValid) { // Re-initialize if not set or was marked invalid
         currentGenAI = initializeAiSdk(apiKeyInput);
-        if (!currentGenAI) {
+        if (!currentGenAI) { // If initialization still fails
             setProcessing(false);
             return;
         }
     }
-
+    
     setProcessing(true);
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
@@ -208,7 +186,7 @@ export default function Home() {
     const currentFileNamesProcessed: string[] = [];
 
     const model = currentGenAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-latest", 
+      model: "gemini-1.5-flash-latest",
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -224,23 +202,35 @@ export default function Home() {
         description: "Sending files to Gemini for text extraction..."
       });
       
-      const imagePartsAndPrompts: (Part | string)[] = ["Extract all text from the following image(s). If there are multiple images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order."];
+      const imageFileParts: Part[] = [];
+      const promptForOcr = "Extract all text from the following image(s). If there are multiple images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order.";
       
       for (const file of selectedFiles) {
         currentFileNamesProcessed.push(file.name);
-        const part = await fileToGenerativePart(file);
-        if (part) {
-          imagePartsAndPrompts.push(part);
+        if (file.type.startsWith("image/")) {
+          const part = await fileToGenerativePart(file);
+          imageFileParts.push(part);
         } else {
-          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for this file type (${file.type}) is not directly supported by this client-side image OCR method.]\n--- END OF FILE: ${file.name} ---`;
+          // For non-image files, add their text content directly or a placeholder
+          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} files is handled separately or not supported by this image OCR method.]\n--- END OF FILE: ${file.name} ---`;
+          toast({
+            title: `File type not an image`,
+            description: `${file.name} (${file.type}) will be skipped for direct Gemini OCR. Only images are currently supported.`,
+            variant: "default"
+          });
         }
       }
 
-      if (imagePartsAndPrompts.length > 1) {
+      if (imageFileParts.length > 0) {
+        const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
+        
         try {
-          const result = await model.generateContent({contents: [{role: "user", parts: imagePartsAndPrompts.filter(p => typeof p === 'string' || (p as Part).inlineData) as Part[]}]});
+          console.log("Sending to Gemini for OCR. Parts:", JSON.stringify(partsForOcrRequest, null, 2));
+          const result = await model.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
           const response = await result.response;
-          combinedTextContent += (combinedTextContent ? "\n\n" : "") + response.text();
+          const extractedTextFromImages = response.text();
+          combinedTextContent += (combinedTextContent ? "\n\n" : "") + extractedTextFromImages;
+          console.log("Text extracted from images:", extractedTextFromImages);
         } catch (error) {
           console.error("Gemini text extraction error:", error);
           toast({
@@ -248,6 +238,7 @@ export default function Home() {
             description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
             variant: "destructive",
           });
+           combinedTextContent += (combinedTextContent ? "\n\n" : "") + "[Text extraction from one or more images failed.]";
         }
       }
     }
@@ -285,13 +276,11 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      // 1. Summarization
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
       setSummaryResult({ summary: summaryResponse.text() || t('summaryNotAvailable') });
 
-      // 2. Keyword Enrichment
       const enrichmentPrompt = `Based on the following text and the provided keywords, suggest 3-5 additional relevant keywords that would be useful for further analysis or search.
 Text: "${combinedTextContent}"
 Original Keywords: ${userKeywordsArray.join(", ")}
@@ -374,7 +363,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
     } catch (error) {
       console.error("Google AI SDK error during analysis:", error);
-      setGenAI(null); // Invalidate SDK instance on error
+      setGenAI(null); 
       setIsApiKeyValid(false);
       toast({
         title: t('toastApiKeyInitErrorTitle'),
@@ -418,7 +407,18 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                 id="gemini-api-key-input"
                 type="password"
                 value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
+                onChange={(e) => {
+                  setApiKeyInput(e.target.value);
+                  // Attempt to initialize SDK on change, or when process is clicked
+                  // For now, we'll initialize primarily on process to avoid too many re-inits
+                  // but also clear validation status if key changes
+                  setIsApiKeyValid(null); 
+                  if (e.target.value.trim()) {
+                    initializeAiSdk(e.target.value);
+                  } else {
+                    setGenAI(null);
+                  }
+                }}
                 placeholder={t('apiKeyPlaceholder')}
                 className="mt-1"
                 aria-describedby="api-key-status"
@@ -427,7 +427,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                  <p id="api-key-status" className="mt-1 text-sm text-destructive">{t('toastApiKeyInitErrorDescription')}</p>
               )}
                {apiKeyInput && isApiKeyValid === true && (
-                 <p id="api-key-status" className="mt-1 text-sm text-green-600">API Key accepted.</p>
+                 <p id="api-key-status" className="mt-1 text-sm text-green-600">{t('apiKeyAccepted')}</p>
               )}
             </CardContent>
           </Card>
@@ -450,7 +450,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           <div className="text-center pt-4">
             <Button 
               onClick={handleProcess} 
-              disabled={processing || !apiKeyInput.trim() || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
+              disabled={processing || !apiKeyInput.trim() || !isApiKeyValid || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
               className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
               aria-live="polite"
@@ -468,6 +468,11 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             {!apiKeyInput.trim() && (
               <p className="text-destructive text-sm mt-2">
                 {t('toastApiKeyMissingDescription')}
+              </p>
+            )}
+             {apiKeyInput.trim() && isApiKeyValid === false && (
+              <p className="text-destructive text-sm mt-2">
+                {t('toastApiKeyInitErrorDescription')}
               </p>
             )}
           </div>
