@@ -1,93 +1,202 @@
-# AI OCR Report
+# File Insights ✨
 
+File Insights is a web application designed to help users extract valuable information from their documents. Users can upload files (images, PDFs), extract text using AI-powered OCR, search for specific keywords, and export the structured data as a JSON file.
 
+## Core Features 🚀
 
-## Getting started
+*   **📄 File Upload**: Supports uploading various file types, primarily images (JPEG, PNG) and PDF documents.
+*   **👁️ AI-Powered Text Extraction (OCR)**: Leverages Google's Gemini AI to accurately extract text from uploaded images.
+*   **🔍 Keyword Search & Analysis**:
+    *   Users define a list of keywords to search within the extracted text.
+    *   The application identifies which keywords are present.
+    *   AI suggests additional relevant keywords based on the content.
+    *   Extracts values or phrases associated with the found keywords.
+*   **📊 Structured Data Output**: Organizes the extracted text, summaries, and keyword analysis into a predefined JSON structure.
+*   **💾 JSON Export**: Allows users to download the processed data as a JSON file.
+*   **☁️ Firebase Firestore Integration**: Users can save their generated reports to a Firestore database.
+*   **🌐 Internationalization (i18n)**: Currently supports Portuguese (Brazil) - `pt_BR`.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Tech Stack 🛠️
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+*   **Frontend**:
+    *   [Next.js](https://nextjs.org/) (v15+ with App Router)
+    *   [React](https://reactjs.org/) (v18+)
+    *   [TypeScript](https://www.typescriptlang.org/)
+    *   [Tailwind CSS](https://tailwindcss.com/) for styling
+    *   [ShadCN UI](https://ui.shadcn.com/) for pre-built UI components
+    *   [Lucide React](https://lucide.dev/) for icons
+    *   `react-i18next` for internationalization
+*   **AI Integration**:
+    *   [Google AI SDK (Gemini)](https://ai.google.dev/sdks) for OCR, text summarization, keyword enrichment, and value extraction.
+*   **Backend & Hosting**:
+    *   [Firebase Hosting](https://firebase.google.com/docs/hosting) for deploying the static Next.js application.
+    *   [Firebase Firestore](https://firebase.google.com/docs/firestore) for storing generated reports.
+*   **Development Tools**:
+    *   `eslint`, `prettier` (implied by Next.js setup)
+    *   Git & GitHub
 
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Project Structure 📁
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/theocarranza/ai-ocr-report.git
-git branch -M main
-git push -uf origin main
+.
+├── .firebase/          # Firebase project artifacts (auto-generated, gitignored)
+├── .vscode/            # VS Code specific settings (e.g., tasks)
+├── functions/          # Firebase Functions (source in src/, builds to lib/)
+│   ├── src/index.ts
+│   ├── package.json
+│   └── tsconfig.json
+├── out/                # Static export output from `next build` (gitignored)
+├── public/             # Static assets (served from root)
+├── src/
+│   ├── app/            # Next.js App Router (pages, layouts, etc.)
+│   │   ├── i18n/       # Internationalization settings
+│   │   ├── (locale)/   # Locale-specific route groups (if used)
+│   │   ├── globals.css # Global styles & ShadCN theme
+│   │   ├── layout.tsx  # Root layout
+│   │   └── page.tsx    # Main page component
+│   ├── components/     # Reusable React components
+│   │   ├── ui/         # ShadCN UI components
+│   │   └── ...         # Custom components (file-input-area, keyword-entry, etc.)
+│   ├── hooks/          # Custom React hooks (e.g., useToast)
+│   ├── lib/            # Utility functions (e.g., cn for Tailwind)
+│   └── locales/        # Translation files (e.g., pt_br/common.json)
+├── .env                # Environment variables (template, actual values in .env.local)
+├── .gitignore          # Specifies intentionally untracked files
+├── apphosting.yaml     # Firebase App Hosting configuration
+├── components.json     # ShadCN UI configuration
+├── firebase.json       # Firebase project configuration (hosting, functions)
+├── firestore.indexes.json # Firestore index definitions
+├── next.config.ts      # Next.js configuration
+├── package.json        # Project dependencies and scripts
+├── tailwind.config.ts  # Tailwind CSS configuration
+├── tsconfig.json       # TypeScript configuration
+└── README.md           # This file
 ```
 
-## Integrate with your tools
+## Getting Started 🚀
 
-- [ ] [Set up project integrations](https://gitlab.com/theocarranza/ai-ocr-report/-/settings/integrations)
+### Prerequisites
 
-## Collaborate with your team
+*   Node.js (LTS version recommended, e.g., v20+)
+*   npm or yarn
+*   Firebase CLI: `npm install -g firebase-tools`
+*   A Google AI Studio API Key for Gemini.
+*   A Firebase project.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### Setup
 
-## Test and Deploy
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/theocarranza/ai-ocr-report.git
+    cd ai-ocr-report
+    ```
 
-Use the built-in continuous integration in GitLab.
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or
+    # yarn install
+    ```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+3.  **Set up Environment Variables:**
+    Create a `.env.local` file in the root of the project. This file is ignored by Git and should contain your sensitive keys.
+    Populate it with your Google AI API Key and Firebase project configuration:
 
-***
+    ```env
+    # Google AI API Key
+    NEXT_PUBLIC_GEMINI_API_KEY="YOUR_GOOGLE_AI_STUDIO_API_KEY"
 
-# Editing this README
+    # Firebase Configuration (get these from your Firebase project settings)
+    NEXT_PUBLIC_FIREBASE_API_KEY="YOUR_FIREBASE_API_KEY"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
+    NEXT_PUBLIC_FIREBASE_APP_ID="your-app-id"
+    # NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="your-measurement-id" # Optional, if using Analytics
+    ```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+4.  **Firebase Setup (if not already done):**
+    *   Log in to Firebase:
+        ```bash
+        firebase login
+        ```
+    *   Initialize Firebase in your project directory (if this project wasn't cloned from a Firebase-initialized repo). However, since `firebase.json` exists, you might just need to associate it with your project:
+        ```bash
+        firebase use --add
+        ```
+        And select your Firebase project.
 
-## Suggestions for a good README
+### Running Locally
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+To start the development server:
+```bash
+npm run dev
+```
+The application will typically be available at `http://localhost:9002` (or another port if 9002 is busy).
 
-## Name
-Choose a self-explaining name for your project.
+### Building for Production
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+To create a production build (static export):
+```bash
+npm run build
+```
+This will generate static files in the `out/` directory.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Deployment 🌐
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+This project is configured for deployment to **Firebase Hosting**.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+1.  **Build the application:**
+    ```bash
+    npm run build
+    ```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+2.  **Deploy to Firebase Hosting:**
+    ```bash
+    firebase deploy --only hosting
+    ```
+    If you also have Firebase Functions:
+    ```bash
+    firebase deploy
+    ```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## Usage 💡
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+1.  **Navigate** to the application in your browser.
+2.  **Enter your Google AI (Gemini) API Key** in the designated input field. This is required for AI functionalities.
+3.  **Provide Input**:
+    *   **File Upload**: Click "Choose Files" to select image(s) or PDF(s). The selected files will be listed.
+    *   **Paste Text**: Alternatively, switch to the "Paste Text" tab and paste your text content directly into the textarea.
+4.  **Define Keywords**: In the "Define Keywords" section, enter a comma-separated list of keywords you want to search for in the document(s)/text.
+    *   You can use suggestions from your keyword history.
+5.  **Generate Report**: Click the "Gerar Relatório" (Generate Report) button.
+6.  **Review Results**: The application will process the input and display:
+    *   A summary of the content.
+    *   Your original keywords.
+    *   Keywords found in the text.
+    *   AI-suggested additional keywords.
+    *   Values or phrases extracted for each found keyword.
+    *   The full structured JSON output.
+7.  **Export/Save**:
+    *   Click "Baixar JSON" (Download JSON) to save the results locally.
+    *   Click "Salvar no Firebase" (Save to Firebase) to store the report in your configured Firestore database (in the "reports" collection).
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Contributing 🤝
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Contributions are welcome! If you have suggestions or want to improve the app, please feel free to:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+1.  Fork the repository.
+2.  Create a new branch (`git checkout -b feature/AmazingFeature`).
+3.  Make your changes.
+4.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+5.  Push to the branch (`git push origin feature/AmazingFeature`).
+6.  Open a Pull Request.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+## License 📄
 
-## License
-For open source projects, say how it is licensed.
+This project is currently unlicensed. (You can add a license if you wish, e.g., MIT License).
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
+
+Happy Analyzing! 🎉
