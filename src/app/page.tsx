@@ -10,16 +10,14 @@ import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, FileType } from 'lucide-react';
 
-// Google AI SDK for direct Gemini API calls
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
-// Firebase (optional, if you plan to use other Firebase services like Auth for security)
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 
 // --- IMPORTANT ---
 // REPLACE WITH YOUR ACTUAL FIREBASE CONFIG IF YOU PLAN TO USE OTHER FIREBASE SERVICES
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "YOUR_API_KEY", // Not used for direct Gemini calls with Google AI SDK
+  apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_STORAGE_BUCKET",
@@ -31,11 +29,7 @@ const firebaseConfig: FirebaseOptions = {
 // You MUST replace this with your actual Gemini API Key.
 // For production, DO NOT hardcode API keys in client-side code.
 // This example is for local development or very restricted environments.
-// Consider using environment variables (e.g., process.env.NEXT_PUBLIC_GEMINI_API_KEY)
-// and ensure your build process handles them securely.
-// For truly secure free-tier, you'd ideally proxy via a (non-Firebase Function) free serverless option if possible,
-// or heavily restrict your API key on Google AI Studio / Google Cloud.
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE";
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
 
 let app;
 // Initialize Firebase (optional, only if other Firebase services are needed)
@@ -48,7 +42,6 @@ let app;
 // }
 
 
-// Initialize Google AI SDK
 let genAI: GoogleGenerativeAI | null = null;
 if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
   try {
@@ -56,10 +49,11 @@ if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
   } catch (error) {
     console.error("Error initializing GoogleGenerativeAI:", error);
   }
+} else {
+  console.warn("Gemini API Key is not configured. AI features will be unavailable.");
 }
 
 
-// Define interfaces for AI outputs
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
 interface KeywordValuesEntry { keyword: string; foundValues: string[]; }
@@ -112,34 +106,18 @@ export default function Home() {
     });
   };
 
-  const clientSideTextExtraction = async (file: File): Promise<string> => {
-    // Placeholder for client-side text extraction
-    // For images, you might use Tesseract.js: https://tesseract.projectnaptha.com/
-    // For PDFs (text-based), you might use pdf.js: https://mozilla.github.io/pdf.js/
-    // For scanned PDFs, client-side OCR is very challenging and performance-intensive.
-    
-    // Example for plain text files (if you decide to support them)
-    if (file.type === 'text/plain') {
-      return file.text();
-    }
-
-    // Simulate image/PDF processing
-    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-       toast({
-        title: "Client-Side OCR Not Implemented",
-        description: `Text extraction for ${file.name} requires a client-side OCR library (e.g., Tesseract.js for images, pdf.js for PDFs). This is a placeholder.`,
-        variant: "default",
-        duration: 5000,
-      });
-      return `[Placeholder: Extracted text from ${file.name} - implement client-side OCR]`;
-    }
-    
-    toast({
-      title: "Unsupported File Type",
-      description: `Client-side text extraction for ${file.type} is not implemented.`,
-      variant: "default",
+  const fileToGenerativePart = async (file: File): Promise<Part> => {
+    const base64EncodedData = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(file);
     });
-    return `[Unsupported file type: ${file.name}]`;
+    return {
+      inlineData: {
+        data: base64EncodedData,
+        mimeType: file.type,
+      },
+    };
   };
 
 
@@ -194,25 +172,52 @@ export default function Home() {
     let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
 
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash-latest",
+      safetySettings: [ 
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      ]
+    });
+
     if (selectedFiles.length > 0) {
       currentInputSource = "file_upload";
       toast({
         title: t('toastProcessingFilesTitle', {count: selectedFiles.length}),
-        description: "Attempting client-side text extraction..."
+        description: "Sending files to Gemini for text extraction..."
       });
       try {
         for (const file of selectedFiles) {
           currentFileNamesProcessed.push(file.name);
-          const extractedText = await clientSideTextExtraction(file);
+          let extractedText = `[Could not extract text from ${file.name}. This model version might not support this file type directly for OCR, or an error occurred.]`;
+
+          if (file.type.startsWith("image/")) { // Only attempt direct OCR for images
+            const imagePart = await fileToGenerativePart(file);
+            const result = await model.generateContent(["Extract all text from this image.", imagePart]);
+            const response = await result.response;
+            extractedText = response.text();
+          } else {
+            // For non-images, you might want to add a message or try a different extraction method
+            // For now, we'll just use the placeholder message
+            extractedText = `[File type ${file.type} not processed for OCR by Gemini in this example. Text for ${file.name} was not extracted.]`;
+          }
+          
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n${extractedText}\n--- END OF FILE: ${file.name} ---`;
         }
       } catch (error) {
-        console.error("Client-side text extraction error:", error);
+        console.error("Gemini text extraction error:", error);
         toast({
           title: t('toastOcrErrorTitle'),
-          description: error instanceof Error ? error.message : "Failed to extract text client-side.",
+          description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
           variant: "destructive",
         });
+        // Continue with manual text if any, or stop if this was the only source
+        if (!manualText.trim()) {
+          setProcessing(false);
+          return;
+        }
       }
     }
 
@@ -249,30 +254,23 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest",
-        // safetySettings: [ // Optional: adjust safety settings
-        //   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        // ]
-      });
-
       // 1. Summarization
-      const summaryPrompt = `Summarize the following text:\n\n${combinedTextContent}`;
+      const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
-      setSummaryResult({ summary: summaryResponse.text() || "Summary not available." });
+      setSummaryResult({ summary: summaryResponse.text() || t('summaryNotAvailable') });
 
       // 2. Keyword Enrichment
-      const enrichmentPrompt = `Based on the following text and keywords, suggest 3-5 additional relevant keywords.
+      const enrichmentPrompt = `Based on the following text and the provided keywords, suggest 3-5 additional relevant keywords that would be useful for further analysis or search.
 Text: "${combinedTextContent}"
 Original Keywords: ${userKeywordsArray.join(", ")}
-Suggested Keywords (comma-separated list):`;
+Suggested Keywords (provide a comma-separated list, only the list itself):`;
       const enrichmentResultObj = await model.generateContent(enrichmentPrompt);
       const enrichmentResponse = await enrichmentResultObj.response;
       const suggestedKeywords = enrichmentResponse.text() ? enrichmentResponse.text().split(',').map(kw => kw.trim()).filter(Boolean) : [];
       setEnrichedKeywordsResult({ suggestedKeywords });
       
-      // 3. Keyword Value Extraction (Simple presence check client-side, or more complex prompt for Gemini)
+      // 3. Keyword Value Extraction
       const foundKws: string[] = [];
       const lowerCleanTextForSearch = combinedTextContent.toLowerCase();
       userKeywordsArray.forEach(kw => {
@@ -281,18 +279,64 @@ Suggested Keywords (comma-separated list):`;
         }
       });
       setFoundKeywordsInText(foundKws);
+      
+      const extractedEntries: KeywordValuesEntry[] = [];
+      if (foundKws.length > 0) {
+        // Example: Ask Gemini to extract values for all found keywords in one go
+        const valueExtractionPrompt = `For each of the following keywords found in the text, list any associated values or phrases. 
+        Keywords: ${foundKws.join(", ")}. 
+        Text: "${combinedTextContent}".
+        Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If no specific values are found for a keyword but it's present, return an empty array for it.`;
+        
+        try {
+          const valueResultObj = await model.generateContent(valueExtractionPrompt);
+          const valueResponse = await valueResultObj.response;
+          const textResponse = valueResponse.text();
+          // Attempt to parse the JSON response
+          let parsedValues: Record<string, string[]> = {};
+          try {
+             // Try to extract JSON part if it's embedded
+            const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
+            if (jsonMatch && jsonMatch[1]) {
+              parsedValues = JSON.parse(jsonMatch[1]);
+            } else {
+              parsedValues = JSON.parse(textResponse); // Assume direct JSON
+            }
+          } catch (jsonError) {
+            console.error("Failed to parse keyword values JSON from Gemini:", jsonError, "Raw response:", textResponse);
+            // Fallback: if JSON parsing fails, populate based on simple presence
+             userKeywordsArray.forEach(kw => {
+              extractedEntries.push({
+                keyword: kw,
+                foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
+              });
+            });
+          }
+          
+          if (Object.keys(parsedValues).length > 0) {
+             userKeywordsArray.forEach(kw => {
+              extractedEntries.push({
+                keyword: kw,
+                foundValues: parsedValues[kw] || (foundKws.includes(kw) ? [] : []) // If found but no specific value, empty array. If not found, also empty.
+              });
+            });
+          }
 
-      // For actual value extraction by Gemini, a structured prompt and JSON response parsing would be needed.
-      // This is a placeholder showing how you might structure the data.
-      // Example prompt for one keyword (you'd loop or batch for multiple):
-      // const valueExtractionPrompt = `From the text: "${combinedTextContent}", extract the value associated with the keyword "${userKeywordsArray[0]}". If found, return the value, otherwise return "Not found".`;
-      // For now, we'll just map found keywords.
-      setKeywordValueMapResult({ 
-        extractedKeywordEntries: userKeywordsArray.map(kw => ({
-          keyword: kw, 
-          foundValues: foundKws.includes(kw) ? ["[Keyword present - client-side check]"] : ["[Keyword not found - client-side check]"] 
-        }))
-      });
+        } catch (valError) {
+          console.error(`Error extracting values for keywords:`, valError);
+           userKeywordsArray.forEach(kw => {
+            extractedEntries.push({
+              keyword: kw,
+              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
+            });
+          });
+        }
+      } else {
+         userKeywordsArray.forEach(kw => {
+          extractedEntries.push({ keyword: kw, foundValues: [] });
+        });
+      }
+      setKeywordValueMapResult({ extractedKeywordEntries: extractedEntries });
 
       toast({
         title: t('toastProcessingCompleteTitle'),
@@ -300,10 +344,10 @@ Suggested Keywords (comma-separated list):`;
       });
 
     } catch (error) {
-      console.error("Google AI SDK error:", error);
+      console.error("Google AI SDK error during analysis:", error);
       toast({
-        title: "AI Processing Error",
-        description: error instanceof Error ? error.message : "An error occurred calling the Gemini API.",
+        title: t('toastInsightGenerationErrorTitle'),
+        description: error instanceof Error ? error.message : "An error occurred calling the Gemini API for analysis.",
         variant: "destructive",
       });
     } finally {
@@ -346,9 +390,9 @@ Suggested Keywords (comma-separated list):`;
           />
 
           <div className="text-center pt-4">
-             {!genAI && GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE" && (
+            {(!genAI || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") && (
               <p className="text-destructive text-sm mb-2">
-                Warning: Gemini API Key not configured. AI features will not work.
+                Warning: Gemini API Key not configured in src/app/page.tsx. AI features will not work.
               </p>
             )}
             <Button 
@@ -391,4 +435,3 @@ Suggested Keywords (comma-separated list):`;
     </div>
   );
 }
-
