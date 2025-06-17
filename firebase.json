@@ -8,32 +8,9 @@
     ],
     "rewrites": [
       {
-        "source": "/api/summarizeFileContent",
-        "function": "apiSummarizeFileContent"
-      },
-      {
-        "source": "/api/enrichKeywords",
-        "function": "apiEnrichKeywords"
-      },
-      {
-        "source": "/api/extractTextFromDocument",
-        "function": "apiExtractTextFromDocument"
-      },
-      {
-        "source": "/api/extractKeywordValues",
-        "function": "apiExtractKeywordValues"
-      },
-      {
         "source": "**",
         "destination": "/index.html"
       }
     ]
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "runtime": "nodejs20"
-    }
-  ]
+  }
 }

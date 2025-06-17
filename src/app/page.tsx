@@ -10,13 +10,14 @@ import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, FileType } from 'lucide-react';
 
-// Import types, but not the functions themselves
-import type { SummarizeFileContentInput, SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
-import type { EnrichKeywordsInput, EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
-import type { ExtractTextFromDocumentInput, ExtractTextFromDocumentOutput } from '@/ai/flows/extract-text-flow';
-import type { ExtractKeywordValuesInput, ExtractKeywordValuesOutput } from '@/ai/flows/extract-keyword-values-flow';
+// AI Flow types might be needed if we re-implement with client-side Firebase AI SDK
+// For now, outputs will be null or empty.
+interface SummarizeFileContentOutput { summary: string; }
+interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
+interface KeywordValuesEntry { keyword: string; foundValues: string[]; }
+interface ExtractKeywordValuesOutput { extractedKeywordEntries: KeywordValuesEntry[]; }
 
-interface OcrFileData {
+interface OcrFileData { // This might still be useful if client-side OCR/text extraction is used before calling Gemini
   name: string;
   extractedText: string;
 }
@@ -24,12 +25,13 @@ interface OcrFileData {
 export default function Home() {
   const { t } = useTranslation();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]);
+  // const [ocrFileResults, setOcrFileResults] = useState<OcrFileData[]>([]); // Temporarily removing as OCR logic is removed
   const [manualText, setManualText] = useState<string>("");
   const [keywords, setKeywords] = useState<string>("");
   const [keywordHistory, setKeywordHistory] = useState<string[]>([]);
   const [processing, setProcessing] = useState<boolean>(false);
   
+  // AI results state will be null for now
   const [summaryResult, setSummaryResult] = useState<SummarizeFileContentOutput | null>(null);
   const [enrichedKeywordsResult, setEnrichedKeywordsResult] = useState<EnrichKeywordsOutput | null>(null);
   const [keywordValueMapResult, setKeywordValueMapResult] = useState<ExtractKeywordValuesOutput | null>(null); 
@@ -53,7 +55,7 @@ export default function Home() {
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
-    setOcrFileResults([]);
+    // setOcrFileResults([]);
     setManualText("");
     setKeywords("");
     setSummaryResult(null);
@@ -105,87 +107,56 @@ export default function Home() {
     });
   };
 
-  // Helper function to call Firebase Functions
-  async function callFirebaseFunction<TInput, TOutput>(functionName: string, payload: TInput): Promise<TOutput> {
-    const response = await fetch(`/api/${functionName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`Function ${functionName} failed: ${errorBody.message || response.statusText}`);
-    }
-    return response.json();
-  }
-
-
   const handleProcess = async () => {
     setProcessing(true);
+    // Reset results
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
     setKeywordValueMapResult(null);
     setFoundKeywordsInText([]);
     setFinalProcessedTextForOutput("");
-    setOcrFileResults([]); 
+    // setOcrFileResults([]); 
     setProcessedFileNames([]);
 
     let currentInputSource = "";
-    let textForAiProcessing = ""; 
-    let cleanTextForOutput = ""; 
+    let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
 
+    // Basic text gathering (OCR/extraction part is now removed, pending client-side AI SDK implementation)
     if (selectedFiles.length > 0) {
       currentInputSource = "file_upload";
-      const ocrResultsFromFileUploads: OcrFileData[] = [];
-      toast({ 
-        title: t('toastProcessingFilesTitle'),
-        description: t('toastProcessingFilesDescription', { count: selectedFiles.length })
+      // Placeholder: In a real scenario with client-side Firebase AI, 
+      // you'd use the SDK here to process files.
+      // For now, we'll just acknowledge the files.
+      selectedFiles.forEach(file => {
+        currentFileNamesProcessed.push(file.name);
+        // Simulate some text for now, or leave it to manual text.
+        // This part will be replaced by actual client-side Firebase AI calls.
+        // combinedTextContent += `[Content of ${file.name}]\n`; 
       });
-      try {
-        for (const file of selectedFiles) {
-          currentFileNamesProcessed.push(file.name);
-          const documentDataUri = await fileToDataUri(file);
-          const ocrInput: ExtractTextFromDocumentInput = { documentDataUri };
-          const ocrOutput = await callFirebaseFunction<ExtractTextFromDocumentInput, ExtractTextFromDocumentOutput>('extractTextFromDocument', ocrInput);
-          ocrResultsFromFileUploads.push({ name: file.name, extractedText: ocrOutput.extractedText });
-        }
-        setOcrFileResults(ocrResultsFromFileUploads);
-        
-        const textsWithDelimiters = ocrResultsFromFileUploads.map(
-          res => `--- START OF FILE: ${res.name} ---\n${res.extractedText}\n--- END OF FILE: ${res.name} ---`
-        );
-        textForAiProcessing = textsWithDelimiters.join("\n\n");
-        cleanTextForOutput = ocrResultsFromFileUploads.map(res => res.extractedText).join("\n\n");
-
-      } catch (ocrError) {
-        console.error("OCR error:", ocrError);
-        toast({
-          title: t('toastOcrErrorTitle'),
-          description: ocrError instanceof Error ? ocrError.message : String(ocrError),
-          variant: "destructive",
+      if(selectedFiles.length > 0 && !manualText.trim()){
+        // If only files are provided, we can't proceed without text extraction logic.
+        // For now, this example will primarily rely on manual text input for AI processing.
+        // A real implementation would extract text from files here using a client-side library or SDK.
+         toast({
+          title: "File Processing Note",
+          description: "File content extraction with client-side Firebase AI SDK needs to be implemented. Processing will use manually pasted text if available.",
+          variant: "default"
         });
-        setProcessing(false);
-        return;
       }
     }
 
     if (manualText.trim()) {
       const trimmedManualText = manualText.trim();
-      if (textForAiProcessing) { 
-        textForAiProcessing += "\n\n--- START OF MANUAL TEXT ---\n" + trimmedManualText + "\n--- END OF MANUAL TEXT ---";
-        cleanTextForOutput += (cleanTextForOutput ? "\n\n" : "") + trimmedManualText;
-        currentInputSource = currentInputSource === "file_upload" ? "file_and_manual_paste" : "manual_paste";
-      } else {
-        textForAiProcessing = trimmedManualText;
-        cleanTextForOutput = trimmedManualText;
-        currentInputSource = "manual_paste";
-      }
+      combinedTextContent += (combinedTextContent ? "\n\n" : "") + trimmedManualText;
+      currentInputSource = currentInputSource === "file_upload" ? "file_and_manual_paste" : "manual_paste";
     }
+    
+    setFinalProcessedTextForOutput(combinedTextContent); // Store the combined text
+    setInputSource(currentInputSource || "unknown");
+    setProcessedFileNames(currentFileNamesProcessed);
 
-    if (!textForAiProcessing) {
+    if (!combinedTextContent) {
       toast({
         title: t('toastNoInputProvidedTitle'),
         description: t('toastNoInputProvidedDescription'),
@@ -194,9 +165,8 @@ export default function Home() {
       setProcessing(false);
       return;
     }
-
+    
     const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
-
     if (userKeywordsArray.length === 0) {
       toast({
         title: t('toastNoKeywordsTitle'),
@@ -206,66 +176,53 @@ export default function Home() {
       setProcessing(false);
       return;
     }
-    
     updateKeywordHistory(userKeywordsArray);
 
-    setFinalProcessedTextForOutput(cleanTextForOutput);
-    setInputSource(currentInputSource || "unknown"); 
-    setProcessedFileNames(currentFileNamesProcessed);
-
+    // --- AI Processing Placeholder ---
+    // This is where you would integrate the Firebase AI Logic SDK (e.g., @firebase/vertexai-preview)
+    // to call Gemini for summarization, keyword enrichment, and value extraction.
+    // For now, we'll simulate a delay and then show a "not implemented" message.
+    
     try {
-      const summaryInput: SummarizeFileContentInput = { fileText: textForAiProcessing };
-      const summaryOutput = await callFirebaseFunction<SummarizeFileContentInput, SummarizeFileContentOutput>('summarizeFileContent', summaryInput);
-      setSummaryResult(summaryOutput);
-
-      const enrichmentInput: EnrichKeywordsInput = { 
-        documentContent: textForAiProcessing,
-        existingKeywords: userKeywordsArray 
-      };
-      const enrichmentOutput = await callFirebaseFunction<EnrichKeywordsInput, EnrichKeywordsOutput>('enrichKeywords', enrichmentInput);
-      setEnrichedKeywordsResult(enrichmentOutput);
-
-      if (userKeywordsArray.length > 0) {
-        const keywordValuesInput: ExtractKeywordValuesInput = {
-          documentText: textForAiProcessing,
-          keywords: userKeywordsArray,
-        };
-        const keywordValuesOutput = await callFirebaseFunction<ExtractKeywordValuesInput, ExtractKeywordValuesOutput>('extractKeywordValues', keywordValuesInput);
-        setKeywordValueMapResult(keywordValuesOutput); 
-      } else {
-        setKeywordValueMapResult({ extractedKeywordEntries: [] });
-      }
-      
+      // Example: Simulate finding keywords in the combinedTextContent
       const foundKws: string[] = [];
-      const lowerCleanTextForSearch = cleanTextForOutput.toLowerCase();
+      const lowerCleanTextForSearch = combinedTextContent.toLowerCase();
       userKeywordsArray.forEach(kw => {
         if (lowerCleanTextForSearch.includes(kw.toLowerCase())) {
           foundKws.push(kw);
         }
       });
       setFoundKeywordsInText(foundKws);
-      
+
+      // Simulate setting some results or leave them null
+      // setSummaryResult({ summary: "AI summarization using client-side Firebase SDK to be implemented." });
+      // setEnrichedKeywordsResult({ suggestedKeywords: ["client-sdk-todo", "firebase-ai"] });
+      // setKeywordValueMapResult({ extractedKeywordEntries: userKeywordsArray.map(kw => ({keyword: kw, foundValues: ["client-sdk-value-todo"]})) });
+
+      toast({
+        title: "AI Processing (Client-Side)",
+        description: "AI features using Firebase client SDKs are to be implemented here.",
+        variant: "default"
+      });
+      // Simulate some processing time
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
       toast({
         title: t('toastProcessingCompleteTitle'),
-        description: t('toastProcessingCompleteDescription'),
+        description: "Displaying placeholder results. AI client-SDK integration pending.",
       });
 
     } catch (error) {
-      console.error("Processing error (summary/enrichment/keyword-values):", error);
+      console.error("Client-side AI Processing error placeholder:", error);
       toast({
-        title: t('toastInsightGenerationErrorTitle'),
+        title: "AI Processing Error",
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-      setSummaryResult(null);
-      setEnrichedKeywordsResult(null);
-      setKeywordValueMapResult(null);
-      setFoundKeywordsInText([]);
     } finally {
       setProcessing(false);
     }
   };
-
+  
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
 

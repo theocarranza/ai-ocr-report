@@ -1,29 +1,11 @@
 {
-  "name": "file-insights-functions",
-  "version": "0.1.0",
+  "name": "file-insights-functions-empty",
+  "version": "0.0.1",
   "private": true,
   "main": "lib/index.js",
-  "scripts": {
-    "build": "tsc",
-    "serve": "firebase emulators:start --only functions",
-    "shell": "firebase functions:shell",
-    "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
-  },
-  "dependencies": {
-    "firebase-admin": "^12.1.0",
-    "firebase-functions": "^5.0.1",
-    "genkit": "^1.8.0",
-    "@genkit-ai/googleai": "^1.8.0",
-    "cors": "^2.8.5",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "typescript": "^5",
-    "firebase-functions-test": "^3.3.0"
-  },
+  "scripts": {},
+  "dependencies": {},
+  "devDependencies": {},
   "engines": {
     "node": "20"
   }
