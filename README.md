@@ -196,6 +196,10 @@ Contributions are welcome! If you have suggestions or want to improve the app, p
 5.  Push to the branch (`git push origin feature/AmazingFeature`).
 6.  Open a Pull Request.
 
+## Acknowledgments 🙏
+
+This project was developed with the assistance of Google's Gemini models.
+
 ## License 📄
 
 MIT License
