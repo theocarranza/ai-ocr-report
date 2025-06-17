@@ -60,5 +60,13 @@
   "toastFeatureNotImplementedTitle": "Funcionalidade Não Implementada",
   "toastFeatureNotImplementedDescription": "Salvar no Firebase não está implementado nesta Prova de Conceito.",
   "chooseFilesButton": "Escolher Arquivos",
-  "noFileChosenText": "Nenhum arquivo selecionado"
+  "noFileChosenText": "Nenhum arquivo selecionado",
+  "apiKeyCardTitle": "Configurar Chave da API Gemini",
+  "apiKeyCardDescription": "Insira sua chave da API do Google AI Studio para ativar as funcionalidades de IA.",
+  "apiKeyLabel": "Sua Chave da API Gemini",
+  "apiKeyPlaceholder": "Cole sua chave da API aqui",
+  "toastApiKeyMissingTitle": "Chave da API Ausente",
+  "toastApiKeyMissingDescription": "Por favor, insira sua chave da API Gemini para continuar.",
+  "toastApiKeyInitErrorTitle": "Erro na Chave da API",
+  "toastApiKeyInitErrorDescription": "Falha ao inicializar a API Gemini. Verifique sua chave e tente novamente."
 }

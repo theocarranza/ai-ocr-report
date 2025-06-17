@@ -4,36 +4,28 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, FileType } from 'lucide-react';
+import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon } from 'lucide-react';
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
-import { initializeApp, type FirebaseOptions } from 'firebase/app';
-
-// --- IMPORTANT ---
-// REPLACE WITH YOUR ACTUAL FIREBASE CONFIG IF YOU PLAN TO USE OTHER FIREBASE SERVICES
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
-};
-
-// --- CRITICAL SECURITY WARNING ---
-// You MUST replace this with your actual Gemini API Key.
-// For production, DO NOT hardcode API keys in client-side code.
-// This example is for local development or very restricted environments.
-// Ensure your API key is secured and has appropriate restrictions.
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
-
-let app;
-// Initialize Firebase (optional, only if other Firebase services are needed)
+// Firebase initialization is optional if only using Google AI SDK directly
+// import { initializeApp, type FirebaseOptions } from 'firebase/app';
+// const firebaseConfig: FirebaseOptions = {
+//   apiKey: "YOUR_API_KEY", // Replace if using other Firebase services
+//   authDomain: "YOUR_AUTH_DOMAIN",
+//   projectId: "YOUR_PROJECT_ID",
+//   storageBucket: "YOUR_STORAGE_BUCKET",
+//   messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+//   appId: "YOUR_APP_ID",
+// };
+// let app;
 // if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
 //   try {
 //     app = initializeApp(firebaseConfig);
@@ -41,18 +33,6 @@ let app;
 //     console.warn("Firebase already initialized or config is missing/invalid.", e);
 //   }
 // }
-
-
-let genAIInstance: GoogleGenerativeAI | null = null;
-if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
-  try {
-    genAIInstance = new GoogleGenerativeAI(GEMINI_API_KEY);
-  } catch (error) {
-    console.error("Error initializing GoogleGenerativeAI:", error);
-  }
-} else {
-  console.warn("Gemini API Key is not configured. AI features will be unavailable.");
-}
 
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
@@ -76,6 +56,11 @@ export default function Home() {
   const [inputSource, setInputSource] = useState<string>(""); 
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
+  const [apiKeyInput, setApiKeyInput] = useState<string>("");
+  const [genAI, setGenAI] = useState<GoogleGenerativeAI | null>(null);
+  const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
+
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -88,11 +73,45 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem('keywordHistory', JSON.stringify(keywordHistory));
   }, [keywordHistory]);
+
+  const initializeAiSdk = useCallback((key: string) => {
+    if (!key.trim()) {
+        setGenAI(null);
+        setIsApiKeyValid(false);
+        return null;
+    }
+    try {
+        const instance = new GoogleGenerativeAI(key);
+        setGenAI(instance);
+        setIsApiKeyValid(true); // Assume valid until a call fails
+        return instance;
+    } catch (error) {
+        console.error("Error initializing GoogleGenerativeAI:", error);
+        setGenAI(null);
+        setIsApiKeyValid(false);
+        toast({
+            title: t('toastApiKeyInitErrorTitle'),
+            description: error instanceof Error ? error.message : t('toastApiKeyInitErrorDescription'),
+            variant: "destructive",
+        });
+        return null;
+    }
+  }, [t, toast]);
+
+  // Effect to re-initialize SDK if API key input changes
+  useEffect(() => {
+    if (apiKeyInput) {
+        initializeAiSdk(apiKeyInput);
+    } else {
+        setGenAI(null);
+        setIsApiKeyValid(null); // Reset validation status if key is cleared
+    }
+  }, [apiKeyInput, initializeAiSdk]);
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
     setManualText("");
-    setKeywords("");
+    // setKeywords(""); // User might want to keep keywords
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
     setKeywordValueMapResult(null);
@@ -107,7 +126,6 @@ export default function Home() {
   };
 
   const fileToGenerativePart = async (file: File): Promise<Part | null> => {
-    // Basic check for common image types
     if (!file.type.startsWith("image/")) {
       toast({
         title: `File type not an image`,
@@ -128,7 +146,6 @@ export default function Home() {
       },
     };
   };
-
 
   const updateKeywordHistory = (newKeywords: string[]) => {
     setKeywordHistory(prevHistory => {
@@ -158,6 +175,25 @@ export default function Home() {
   };
 
   const handleProcess = async () => {
+    if (!apiKeyInput.trim()) {
+      toast({
+        title: t('toastApiKeyMissingTitle'),
+        description: t('toastApiKeyMissingDescription'),
+        variant: "destructive",
+      });
+      setProcessing(false);
+      return;
+    }
+
+    let currentGenAI = genAI;
+    if (!currentGenAI || !isApiKeyValid) {
+        currentGenAI = initializeAiSdk(apiKeyInput);
+        if (!currentGenAI) {
+            setProcessing(false);
+            return;
+        }
+    }
+
     setProcessing(true);
     setSummaryResult(null);
     setEnrichedKeywordsResult(null);
@@ -166,22 +202,12 @@ export default function Home() {
     setFinalProcessedTextForOutput("");
     setInputSource("");
     setProcessedFileNames([]);
-
-    if (!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
-      toast({
-        title: "Gemini API Not Configured",
-        description: "Please provide your Gemini API Key in src/app/page.tsx.",
-        variant: "destructive",
-      });
-      setProcessing(false);
-      return;
-    }
-
+    
     let currentInputSource = "";
     let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
 
-    const model = genAIInstance.getGenerativeModel({ 
+    const model = currentGenAI.getGenerativeModel({ 
       model: "gemini-1.5-flash-latest", 
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -206,15 +232,11 @@ export default function Home() {
         if (part) {
           imagePartsAndPrompts.push(part);
         } else {
-          // For non-image files or files that couldn't be processed, add a placeholder.
-          // You might want to implement client-side text extraction for PDFs here
-          // or inform the user that these files can't be processed by this method.
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for this file type (${file.type}) is not directly supported by this client-side image OCR method.]\n--- END OF FILE: ${file.name} ---`;
         }
       }
 
-      // Only call Gemini if there are actual image parts to process
-      if (imagePartsAndPrompts.length > 1) { // More than just the initial prompt string
+      if (imagePartsAndPrompts.length > 1) {
         try {
           const result = await model.generateContent({contents: [{role: "user", parts: imagePartsAndPrompts.filter(p => typeof p === 'string' || (p as Part).inlineData) as Part[]}]});
           const response = await result.response;
@@ -226,7 +248,6 @@ export default function Home() {
             description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
             variant: "destructive",
           });
-          // Do not return here, allow manual text to still be processed
         }
       }
     }
@@ -280,7 +301,6 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       const suggestedKeywords = enrichmentResponse.text() ? enrichmentResponse.text().split(',').map(kw => kw.trim()).filter(Boolean) : [];
       setEnrichedKeywordsResult({ suggestedKeywords });
       
-      // 3. Keyword Value Extraction
       const foundKws: string[] = [];
       const lowerCleanTextForSearch = combinedTextContent.toLowerCase();
       userKeywordsArray.forEach(kw => {
@@ -304,7 +324,6 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
           let parsedValues: Record<string, string[]> = {};
           try {
-            // Attempt to extract JSON from markdown code block if present
             const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
             if (jsonMatch && jsonMatch[1]) {
               textResponse = jsonMatch[1];
@@ -312,7 +331,6 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             parsedValues = JSON.parse(textResponse);
           } catch (jsonError) {
             console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
-            // Fallback: Ask for each keyword individually if structured JSON fails
             for (const kw of foundKws) {
               const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
               const kwResult = await model.generateContent(directQuestionPrompt);
@@ -329,22 +347,20 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           userKeywordsArray.forEach(kw => {
             extractedEntries.push({
               keyword: kw,
-              foundValues: parsedValues[kw] || [] // Use parsed values or empty array
+              foundValues: parsedValues[kw] || [] 
             });
           });
 
         } catch (valError) {
           console.error(`Error extracting values for keywords:`, valError);
-           // Fallback if the entire value extraction attempt fails
            userKeywordsArray.forEach(kw => {
             extractedEntries.push({
               keyword: kw,
-              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : [] // Indicate if keyword was found but values failed
+              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
             });
           });
         }
       } else {
-         // If no user keywords were found in the text at all
          userKeywordsArray.forEach(kw => {
           extractedEntries.push({ keyword: kw, foundValues: [] });
         });
@@ -358,9 +374,11 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
     } catch (error) {
       console.error("Google AI SDK error during analysis:", error);
+      setGenAI(null); // Invalidate SDK instance on error
+      setIsApiKeyValid(false);
       toast({
-        title: t('toastInsightGenerationErrorTitle'),
-        description: error instanceof Error ? error.message : "An error occurred calling the Gemini API for analysis.",
+        title: t('toastApiKeyInitErrorTitle'),
+        description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
         variant: "destructive",
       });
     } finally {
@@ -387,6 +405,33 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         </header>
 
         <main className="space-y-8 max-w-4xl mx-auto">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-headline text-2xl flex items-center">
+                <ApiKeyIcon className="mr-2 h-6 w-6 text-primary" /> {t('apiKeyCardTitle')}
+              </CardTitle>
+              <CardDescription>{t('apiKeyCardDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Label htmlFor="gemini-api-key-input" className="font-medium">{t('apiKeyLabel')}</Label>
+              <Input
+                id="gemini-api-key-input"
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder={t('apiKeyPlaceholder')}
+                className="mt-1"
+                aria-describedby="api-key-status"
+              />
+              {apiKeyInput && isApiKeyValid === false && (
+                 <p id="api-key-status" className="mt-1 text-sm text-destructive">{t('toastApiKeyInitErrorDescription')}</p>
+              )}
+               {apiKeyInput && isApiKeyValid === true && (
+                 <p id="api-key-status" className="mt-1 text-sm text-green-600">API Key accepted.</p>
+              )}
+            </CardContent>
+          </Card>
+
           <FileInputArea 
             selectedFiles={selectedFiles}
             setSelectedFiles={setSelectedFiles}
@@ -403,14 +448,9 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           />
 
           <div className="text-center pt-4">
-            {(!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") && (
-              <p className="text-destructive text-sm mb-2">
-                Warning: Gemini API Key not configured in src/app/page.tsx. AI features will not work.
-              </p>
-            )}
             <Button 
               onClick={handleProcess} 
-              disabled={processing || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0 || (!genAIInstance || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE")}
+              disabled={processing || !apiKeyInput.trim() || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
               className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
               aria-live="polite"
@@ -425,6 +465,11 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                 </>
               )}
             </Button>
+            {!apiKeyInput.trim() && (
+              <p className="text-destructive text-sm mt-2">
+                {t('toastApiKeyMissingDescription')}
+              </p>
+            )}
           </div>
 
           {showResults && (
@@ -448,4 +493,3 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
-
