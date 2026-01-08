@@ -76,6 +76,8 @@ export default function Home() {
     if (storedHistory) {
       setKeywordHistory(JSON.parse(storedHistory));
     }
+    
+    // Automatically initialize the SDK if the key is in the environment
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (apiKey) {
       initializeAiSdk(apiKey);
@@ -169,6 +171,9 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
+    
+    // Use the same modern model for both vision and text
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
 
     if (selectedFiles.length > 0) {
       currentInputSource = "file_upload";
@@ -196,11 +201,10 @@ export default function Home() {
       }
 
       if (imageFileParts.length > 0) {
-        const ocrModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
         const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
         
         try {
-          const result = await ocrModel.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
+          const result = await model.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
           const response = await result.response;
           const extractedTextFromImages = response.text();
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + extractedTextFromImages;
@@ -249,8 +253,6 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
-      
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
