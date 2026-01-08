@@ -77,7 +77,6 @@ export default function Home() {
     if (storedHistory) {
       setKeywordHistory(JSON.parse(storedHistory));
     }
-    // Initialize the AI SDK with the key from environment variables on component mount
     initializeAiSdk(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
   }, [initializeAiSdk]);
 
@@ -193,7 +192,7 @@ export default function Home() {
       }
 
       if (imageFileParts.length > 0) {
-        const ocrModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
+        const ocrModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
         const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
         
         try {
@@ -248,7 +247,7 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
       
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
@@ -501,7 +500,5 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
-
-
 
     
