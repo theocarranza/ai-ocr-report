@@ -53,7 +53,6 @@ export default function Home() {
     if (!key || !key.trim()) {
         setGenAI(null);
         setIsApiKeyValid(false);
-        console.error("Gemini API key is missing from environment variables.");
         return;
     }
     try {
@@ -197,7 +196,7 @@ export default function Home() {
       }
 
       if (imageFileParts.length > 0) {
-        const ocrModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
+        const ocrModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
         const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
         
         try {
@@ -252,7 +251,7 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
       
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
@@ -458,22 +457,18 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             onAddKeywordFromSuggestion={handleAddKeywordFromSuggestion}
           />
 
-          <div className="text-center pt-4">
-            <Button 
-              onClick={handleProcess} 
+          <div className="fixed bottom-8 left-8 z-50">
+            <Button
+              onClick={handleProcess}
               disabled={processing || isApiKeyValid === false || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
-              className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
+              className="w-16 h-16 rounded-full bg-destructive hover:bg-destructive/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-110 shadow-2xl"
               aria-live="polite"
             >
               {processing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('processingButton')}
-                </>
+                <Loader2 className="h-7 w-7 animate-spin" />
               ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" /> {t('generateInsightsButton')}
-                </>
+                <Sparkles className="h-7 w-7" />
               )}
             </Button>
             {isApiKeyValid === false && (
@@ -482,6 +477,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
               </p>
             )}
           </div>
+
 
           {showResults && (
             <ResultsDisplay 
