@@ -7,7 +7,7 @@ interface Options {
   lng?: string;
   ns?: string | string[];
   debug?: boolean;
-  load?: 'all' | 'currentOnly' | 'languageOnly' | 'unspecific';
+  load?: 'all' | 'currentOnly' | 'languageOnly';
   fallbackLng?: string | string[] | false; // Added false as an option
   initImmediate?: boolean;
   react?: {

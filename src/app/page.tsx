@@ -171,9 +171,9 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    // Use gemini-pro-vision for OCR and gemini-pro for text tasks
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
-    const textModel = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+    // Use gemini-2.5-flash for both OCR and text tasks (multimodal)
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
+    const textModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
 
 
     if (selectedFiles.length > 0) {

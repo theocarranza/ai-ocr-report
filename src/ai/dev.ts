@@ -1,3 +1,14 @@
-// This file is no longer used as AI logic is client-side with Google AI SDK.
-// It can be deleted.
-export {};
+'use server';
+
+import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
+
+ai.init({
+  plugins: [
+    googleAI({
+      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
+    }),
+  ],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
+});

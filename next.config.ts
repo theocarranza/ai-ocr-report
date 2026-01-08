@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -21,6 +18,9 @@ const nextConfig: NextConfig = {
     unoptimized: true, // Required for static export (next export)
   },
   experimental: {
+    serverActions: {
+      bodySizeLimit: '4.5mb',
+    },
   }
 };
 
