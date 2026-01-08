@@ -196,16 +196,14 @@ export default function Home() {
       }
 
       if (imageFileParts.length > 0) {
-        const ocrModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
+        const ocrModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
         const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
         
         try {
-          console.log("Sending to Gemini for OCR. Parts:", JSON.stringify(partsForOcrRequest, null, 2));
           const result = await ocrModel.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
           const response = await result.response;
           const extractedTextFromImages = response.text();
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + extractedTextFromImages;
-          console.log("Text extracted from images:", extractedTextFromImages);
         } catch (error) {
           console.error("Gemini text extraction error:", error);
           toast({
@@ -251,7 +249,7 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
       
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
