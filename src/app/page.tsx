@@ -480,6 +480,27 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       });
     }
   };
+
+  const handleListModels = async () => {
+    if (!genAI) {
+      toast({ title: "API Key needed", description: "Please provide an API key first.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Listing Models", description: "Check the developer console for the list of available models." });
+    try {
+      // @ts-ignore - internal method for debugging
+      const models = await genAI.getGenerativeModel({model: ""}).listModels();
+      console.log("--- Available Generative AI Models ---");
+      for await (const model of models) {
+        console.log(model);
+      }
+      console.log("------------------------------------");
+      toast({ title: "Success", description: "Model list has been logged to the console." });
+    } catch(e) {
+      console.error("Could not list models:", e);
+      toast({ title: "Error", description: "Could not list models. See console for error.", variant: "destructive" });
+    }
+  }
   
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
@@ -510,6 +531,11 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                 </AlertDescription>
               </Alert>
           )}
+
+          <div className="flex gap-4">
+            <Button onClick={handleListModels} variant="outline" className="w-full">List Available Models (for debugging)</Button>
+          </div>
+
 
           <FileInputArea 
             selectedFiles={selectedFiles}
@@ -615,9 +641,5 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
-
-    
-
-    
 
     
