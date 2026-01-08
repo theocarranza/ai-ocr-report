@@ -5,13 +5,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
@@ -41,7 +41,6 @@ export default function Home() {
   const [inputSource, setInputSource] = useState<string>(""); 
   const [processedFileNames, setProcessedFileNames] = useState<string[]>([]);
 
-  const [apiKeyInput, setApiKeyInput] = useState<string>("");
   const [genAI, setGenAI] = useState<GoogleGenerativeAI | null>(null);
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
 
@@ -49,34 +48,18 @@ export default function Home() {
   const [firestore, setFirestore] = useState<Firestore | null>(null);
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    const storedHistory = localStorage.getItem('keywordHistory');
-    if (storedHistory) {
-      setKeywordHistory(JSON.parse(storedHistory));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('keywordHistory', JSON.stringify(keywordHistory));
-  }, [keywordHistory]);
   
-  const initializeAiSdk = useCallback((key: string) => {
-    if (!key.trim()) {
+  const initializeAiSdk = useCallback((key: string | undefined) => {
+    if (!key || !key.trim()) {
         setGenAI(null);
         setIsApiKeyValid(false);
-        toast({
-            title: t('toastApiKeyMissingTitle'),
-            description: t('toastApiKeyMissingDescription'),
-            variant: "destructive",
-        });
-        return null;
+        console.error("Gemini API key is missing from environment variables.");
+        return;
     }
     try {
         const instance = new GoogleGenerativeAI(key);
         setGenAI(instance);
         setIsApiKeyValid(true); 
-        return instance;
     } catch (error) {
         console.error("Error initializing GoogleGenerativeAI:", error);
         setGenAI(null);
@@ -86,9 +69,21 @@ export default function Home() {
             description: error instanceof Error ? error.message : t('toastApiKeyInitErrorDescription'),
             variant: "destructive",
         });
-        return null;
     }
   }, [t, toast]);
+  
+  useEffect(() => {
+    const storedHistory = localStorage.getItem('keywordHistory');
+    if (storedHistory) {
+      setKeywordHistory(JSON.parse(storedHistory));
+    }
+    // Initialize the AI SDK with the key from environment variables on component mount
+    initializeAiSdk(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+  }, [initializeAiSdk]);
+
+  useEffect(() => {
+    localStorage.setItem('keywordHistory', JSON.stringify(keywordHistory));
+  }, [keywordHistory]);
   
   const clearAllInputs = () => {
     setSelectedFiles([]);
@@ -142,23 +137,14 @@ export default function Home() {
   };
 
   const handleProcess = async () => {
-    if (!apiKeyInput.trim()) {
-      toast({
-        title: t('toastApiKeyMissingTitle'),
-        description: t('toastApiKeyMissingDescription'),
-        variant: "destructive",
-      });
-      setProcessing(false);
-      return;
-    }
-
-    let currentGenAI = genAI;
-    if (!currentGenAI || !isApiKeyValid) { 
-        currentGenAI = initializeAiSdk(apiKeyInput);
-        if (!currentGenAI) { 
-            setProcessing(false);
-            return;
-        }
+    if (!genAI || !isApiKeyValid) {
+        toast({
+            title: t('toastApiKeyMissingTitle'),
+            description: t('toastApiKeyMissingDescription'),
+            variant: "destructive",
+        });
+        setProcessing(false);
+        return;
     }
     
     setProcessing(true);
@@ -174,7 +160,7 @@ export default function Home() {
     let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
 
-    const model = currentGenAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash-latest",
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -380,7 +366,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       };
 
       if (!firebaseConfigValues.apiKey || !firebaseConfigValues.projectId) {
-        console.error("Firebase config is missing critical values (apiKey or projectId) in environment variables.");
+        console.error("Firebase config is missing or uses placeholder values in environment variables.");
         toast({
           title: t('toastFirebaseConfigMissingTitle'),
           description: t('toastFirebaseConfigMissingDescription'),
@@ -445,40 +431,15 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         </header>
 
         <main className="space-y-8 max-w-4xl mx-auto">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="font-headline text-2xl flex items-center">
-                <ApiKeyIcon className="mr-2 h-6 w-6 text-primary" /> {t('apiKeyCardTitle')}
-              </CardTitle>
-              <CardDescription>{t('apiKeyCardDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Label htmlFor="gemini-api-key-input" className="font-medium">{t('apiKeyLabel')}</Label>
-              <Input
-                id="gemini-api-key-input"
-                type="password"
-                value={apiKeyInput}
-                onChange={(e) => {
-                  setApiKeyInput(e.target.value);
-                  setIsApiKeyValid(null); 
-                  if (e.target.value.trim()) {
-                    initializeAiSdk(e.target.value);
-                  } else {
-                    setGenAI(null);
-                  }
-                }}
-                placeholder={t('apiKeyPlaceholder')}
-                className="mt-1"
-                aria-describedby="api-key-status"
-              />
-              {apiKeyInput && isApiKeyValid === false && (
-                 <p id="api-key-status" className="mt-1 text-sm text-destructive">{t('toastApiKeyInitErrorDescription')}</p>
-              )}
-               {apiKeyInput && isApiKeyValid === true && (
-                 <p id="api-key-status" className="mt-1 text-sm text-green-600">{t('apiKeyAccepted')}</p>
-              )}
-            </CardContent>
-          </Card>
+          {isApiKeyValid === false && (
+             <Alert variant="destructive">
+                <ApiKeyIcon className="h-4 w-4" />
+                <AlertTitle>{t('toastApiKeyInitErrorTitle')}</AlertTitle>
+                <AlertDescription>
+                  {t('toastApiKeyMissingDescription')}
+                </AlertDescription>
+              </Alert>
+          )}
 
           <FileInputArea 
             selectedFiles={selectedFiles}
@@ -498,7 +459,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           <div className="text-center pt-4">
             <Button 
               onClick={handleProcess} 
-              disabled={processing || !apiKeyInput.trim() || !isApiKeyValid || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
+              disabled={processing || isApiKeyValid === false || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
               className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
               aria-live="polite"
@@ -513,14 +474,9 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
                 </>
               )}
             </Button>
-            {!apiKeyInput.trim() && (
+            {isApiKeyValid === false && (
               <p className="text-destructive text-sm mt-2">
                 {t('toastApiKeyMissingDescription')}
-              </p>
-            )}
-             {apiKeyInput.trim() && isApiKeyValid === false && (
-              <p className="text-destructive text-sm mt-2">
-                {t('toastApiKeyInitErrorDescription')}
               </p>
             )}
           </div>
@@ -548,3 +504,6 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
   );
 }
 
+
+
+    
