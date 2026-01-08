@@ -238,8 +238,8 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
-    const textModel = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-1.0-pro-vision-latest", safetySettings });
+    const textModel = genAI.getGenerativeModel({ model: "gemini-1.0-pro-latest", safetySettings });
 
 
     if (filesToProcess.length > 0) {
@@ -615,6 +615,8 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
+
+    
 
     
 
