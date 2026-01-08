@@ -171,7 +171,7 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest", safetySettings });
 
     if (selectedFiles.length > 0) {
       currentInputSource = "file_upload";
