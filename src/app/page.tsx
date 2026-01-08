@@ -171,7 +171,10 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest", safetySettings });
+    // Use gemini-pro-vision for OCR and gemini-pro for text tasks
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
+    const textModel = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
+
 
     if (selectedFiles.length > 0) {
       currentInputSource = "file_upload";
@@ -202,7 +205,7 @@ export default function Home() {
         const partsForOcrRequest: Part[] = [{ text: promptForOcr }, ...imageFileParts];
         
         try {
-          const result = await model.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
+          const result = await visionModel.generateContent({contents: [{role: "user", parts: partsForOcrRequest}]});
           const response = await result.response;
           const extractedTextFromImages = response.text();
           combinedTextContent += (combinedTextContent ? "\n\n" : "") + extractedTextFromImages;
@@ -253,7 +256,7 @@ export default function Home() {
     try {
       
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
-      const summaryResultObj = await model.generateContent(summaryPrompt);
+      const summaryResultObj = await textModel.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
       setSummaryResult({ summary: summaryResponse.text() || t('summaryNotAvailable') });
 
@@ -261,7 +264,7 @@ export default function Home() {
 Text: "${combinedTextContent}"
 Original Keywords: ${userKeywordsArray.join(", ")}
 Suggested Keywords (provide a comma-separated list, only the list itself):`;
-      const enrichmentResultObj = await model.generateContent(enrichmentPrompt);
+      const enrichmentResultObj = await textModel.generateContent(enrichmentPrompt);
       const enrichmentResponse = await enrichmentResultObj.response;
       const suggestedKeywords = enrichmentResponse.text() ? enrichmentResponse.text().split(',').map(kw => kw.trim()).filter(Boolean) : [];
       setEnrichedKeywordsResult({ suggestedKeywords });
@@ -283,7 +286,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If a keyword is present but no specific values are found, return an empty array for it.`;
         
         try {
-          const valueResultObj = await model.generateContent(valueExtractionPrompt);
+          const valueResultObj = await textModel.generateContent(valueExtractionPrompt);
           const valueResponse = await valueResultObj.response;
           let textResponse = valueResponse.text();
 
@@ -298,7 +301,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
             for (const kw of foundKws) {
               const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
-              const kwResult = await model.generateContent(directQuestionPrompt);
+              const kwResult = await textModel.generateContent(directQuestionPrompt);
               const kwResponse = await kwResult.response;
               const kwText = kwResponse.text();
               if (kwText && !kwText.toLowerCase().includes("none found")) {
