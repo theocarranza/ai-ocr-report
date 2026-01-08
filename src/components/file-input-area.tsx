@@ -234,7 +234,7 @@ export function FileInputArea({
           <DialogHeader>
             <DialogTitle>Enhance Image</DialogTitle>
             <DialogDescription>
-              Describe how you want to change the image. The original will be on the left, the enhanced version on the right.
+              Describe how you want to change the image. The original is on the left, the enhanced version will appear on the right.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
@@ -250,7 +250,7 @@ export function FileInputArea({
                 ) : enhancedImage ? (
                   <Image src={enhancedImage} alt="Enhanced" width={350} height={350} className="rounded-md object-contain"/>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Your enhanced image will appear here.</p>
+                  <p className="text-sm text-muted-foreground text-center p-4">Your enhanced image will appear here after processing.</p>
                 )}
               </div>
             </div>
@@ -266,6 +266,7 @@ export function FileInputArea({
               />
               <Button onClick={handleEnhanceImage} disabled={isEnhancing || !enhancementPrompt}>
                 {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Wand2 className="h-4 w-4"/>}
+                <span className="sr-only">Enhance</span>
               </Button>
             </div>
           </div>
