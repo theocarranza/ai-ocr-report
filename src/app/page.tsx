@@ -14,7 +14,7 @@ import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon, Wand2 } from 'luci
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { enhanceImage } from '@/ai/flows/enhance-image-flow';
+// import { enhanceImage } from '@/ai/flows/enhance-image-flow';
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
@@ -198,6 +198,7 @@ export default function Home() {
     let filesToProcess = [...selectedFiles];
 
     // --- Image Enhancement Step ---
+    /*
     if (targetFileForEnhancement && enhancementTags.length > 0) {
       const fileToEnhance = filesToProcess.find(f => f.name === targetFileForEnhancement);
       if (fileToEnhance) {
@@ -229,6 +230,7 @@ export default function Home() {
         }
       }
     }
+    */
 
 
     const safetySettings = [ 
@@ -358,13 +360,12 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
           let parsedValues: Record<string, string[]> = {};
           try {
-            const jsonMatch = textResponse.match(/```json\n([\s\S]*?)\n```/);
-            if (jsonMatch && jsonMatch[1]) {
-              textResponse = jsonMatch[1];
-            }
-            parsedValues = JSON.parse(textResponse);
+            // Remove markdown code blocks if present
+            const cleanJsonText = textResponse.replace(/```json\n?|\n?```/g, "").trim();
+            parsedValues = JSON.parse(cleanJsonText);
           } catch (jsonError) {
-            console.warn("Failed to parse keyword values JSON from Gemini, attempting fallback:", jsonError, "Raw response:", textResponse);
+             console.error("Failed to parse keyword values JSON from Gemini:", jsonError);
+             console.warn("Raw response that failed parsing:", textResponse);
             for (const kw of foundKws) {
               const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
               const kwResult = await textModel.generateContent(directQuestionPrompt);
