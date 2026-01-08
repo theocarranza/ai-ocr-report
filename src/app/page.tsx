@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
@@ -9,8 +10,11 @@ import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon } from 'lucide-react';
+import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { enhanceImage } from '@/ai/flows/enhance-image-flow';
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
@@ -46,7 +50,12 @@ export default function Home() {
   const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
   const [firestore, setFirestore] = useState<Firestore | null>(null);
 
+  const [enhancementTags, setEnhancementTags] = useState<string[]>([]);
+  const [targetFileForEnhancement, setTargetFileForEnhancement] = useState<string>("");
+
   const { toast } = useToast();
+
+  const predefinedEnhancementTags = ["Improve Clarity", "Fix Lighting", "Increase Contrast", "Convert to B&W", "Remove Shadows"];
   
   const initializeAiSdk = useCallback((key: string | undefined) => {
     if (!key || !key.trim()) {
@@ -99,6 +108,8 @@ export default function Home() {
     setFinalProcessedTextForOutput("");
     setInputSource("");
     setProcessedFileNames([]);
+    setEnhancementTags([]);
+    setTargetFileForEnhancement("");
     toast({ 
       title: t('toastInputsClearedTitle'),
       description: t('toastInputsClearedDescription')
@@ -140,6 +151,27 @@ export default function Home() {
     });
   };
 
+  const handleToggleEnhancementTag = (tag: string) => {
+    setEnhancementTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    let arr = dataurl.split(','), mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) {
+      throw new Error('Invalid data URL');
+    }
+    let mime = mimeMatch[1],
+        bstr = atob(arr[1]), 
+        n = bstr.length, 
+        u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, {type:mime});
+  }
+
   const handleProcess = async () => {
     if (!genAI || !isApiKeyValid) {
         toast({
@@ -163,6 +195,41 @@ export default function Home() {
     let currentInputSource = "";
     let combinedTextContent = ""; 
     const currentFileNamesProcessed: string[] = [];
+    let filesToProcess = [...selectedFiles];
+
+    // --- Image Enhancement Step ---
+    if (targetFileForEnhancement && enhancementTags.length > 0) {
+      const fileToEnhance = filesToProcess.find(f => f.name === targetFileForEnhancement);
+      if (fileToEnhance) {
+        toast({ title: "Enhancing Image...", description: `Applying enhancements to ${fileToEnhance.name}` });
+        try {
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>(resolve => {
+            reader.onload = e => resolve(e.target?.result as string);
+            reader.readAsDataURL(fileToEnhance);
+          });
+          
+          const result = await enhanceImage({
+            photoDataUri: dataUrl,
+            prompt: enhancementTags.join(', '),
+          });
+
+          const newFileName = `enhanced_${fileToEnhance.name}`;
+          const newFile = dataURLtoFile(result.enhancedPhotoDataUri, newFileName);
+          
+          filesToProcess = filesToProcess.map(f => f.name === fileToEnhance.name ? newFile : f);
+          toast({ title: "Image Enhanced", description: `${fileToEnhance.name} was successfully enhanced.` });
+        } catch (error) {
+          console.error("Image enhancement error:", error);
+          toast({
+            title: "Enhancement Failed",
+            description: error instanceof Error ? error.message : "Could not enhance the image. Proceeding with original.",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+
 
     const safetySettings = [ 
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -171,22 +238,21 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    // Use gemini-2.5-flash for both OCR and text tasks (multimodal)
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
-    const textModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", safetySettings });
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-pro-vision", safetySettings });
+    const textModel = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
 
 
-    if (selectedFiles.length > 0) {
+    if (filesToProcess.length > 0) {
       currentInputSource = "file_upload";
       toast({
-        title: t('toastProcessingFilesTitle', {count: selectedFiles.length}),
+        title: t('toastProcessingFilesTitle', {count: filesToProcess.length}),
         description: "Sending files to Gemini for text extraction..."
       });
       
       const imageFileParts: Part[] = [];
       const promptForOcr = "Extract all text from the following image(s). If there are multiple images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order.";
       
-      for (const file of selectedFiles) {
+      for (const file of filesToProcess) {
         currentFileNamesProcessed.push(file.name);
         if (file.type.startsWith("image/")) {
           const part = await fileToGenerativePart(file);
@@ -417,6 +483,7 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
   
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
+  const imageFiles = selectedFiles.filter(f => f.type.startsWith("image/"));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -451,6 +518,52 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             setManualText={setManualText}
             clearAllInputs={clearAllInputs}
           />
+
+          {imageFiles.length > 0 && (
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="font-headline text-2xl flex items-center">
+                  <Wand2 className="mr-2 h-6 w-6 text-primary" /> Image Enhancement
+                </CardTitle>
+                <CardDescription>Optionally, enhance one of your uploaded images before processing.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="target-file-enhancement">Image to Enhance</Label>
+                    <select
+                      id="target-file-enhancement"
+                      value={targetFileForEnhancement}
+                      onChange={(e) => setTargetFileForEnhancement(e.target.value)}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md border"
+                      disabled={imageFiles.length === 0}
+                    >
+                      <option value="">-- Select an image --</option>
+                      {imageFiles.map(file => (
+                        <option key={file.name} value={file.name}>{file.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Enhancement Tags</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {predefinedEnhancementTags.map(tag => (
+                        <Badge
+                          key={tag}
+                          variant={enhancementTags.includes(tag) ? 'default' : 'secondary'}
+                          onClick={() => handleToggleEnhancementTag(tag)}
+                          className="cursor-pointer"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <KeywordEntry 
             keywords={keywords} 
             setKeywords={setKeywords}
@@ -458,28 +571,27 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
             onRemoveKeywordFromHistory={handleRemoveKeywordFromHistory}
             onAddKeywordFromSuggestion={handleAddKeywordFromSuggestion}
           />
-
-          <div className="fixed bottom-8 left-8 z-50">
+          
+          <div className="pt-6 flex justify-center">
             <Button
               onClick={handleProcess}
               disabled={processing || isApiKeyValid === false || (!manualText.trim() && selectedFiles.length === 0) || userKeywordsArray.length === 0}
               size="lg"
-              className="w-16 h-16 rounded-full bg-destructive hover:bg-destructive/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-110 shadow-2xl"
-              aria-live="polite"
+              className="bg-destructive hover:bg-destructive/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-2xl px-12 py-6 text-lg"
             >
               {processing ? (
-                <Loader2 className="h-7 w-7 animate-spin" />
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Processing...
+                </>
               ) : (
-                <Sparkles className="h-7 w-7" />
+                <>
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Generate Report
+                </>
               )}
             </Button>
-            {isApiKeyValid === false && (
-              <p className="text-destructive text-sm mt-2">
-                {t('toastApiKeyMissingDescription')}
-              </p>
-            )}
           </div>
-
 
           {showResults && (
             <ResultsDisplay 
@@ -503,3 +615,5 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
+
+    
