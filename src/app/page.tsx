@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
@@ -172,7 +171,6 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    // Use the same modern model for both vision and text
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", safetySettings });
 
     if (selectedFiles.length > 0) {
@@ -253,6 +251,7 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
+      
       const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
       const summaryResultObj = await model.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
@@ -501,5 +500,3 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
-
-    
