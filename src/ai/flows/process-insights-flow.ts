@@ -5,6 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 
 const FileInputSchema = z.object({
@@ -52,7 +53,7 @@ const processInsightsFlow = ai.defineFlow(
     if (input.files && input.files.length > 0) {
       const ocrParts = input.files.map(f => ({ media: { url: f.dataUri } }));
       const { text } = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: googleAI.model('gemini-1.5-flash'),
         prompt: [
           ...ocrParts,
           { text: "Extract all text from these documents. Preserve structure where possible." }
@@ -67,7 +68,7 @@ const processInsightsFlow = ai.defineFlow(
 
     // 2. Summary & Keywords
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: googleAI.model('gemini-1.5-flash'),
       prompt: `Analyze the following text:
       
       TEXT:

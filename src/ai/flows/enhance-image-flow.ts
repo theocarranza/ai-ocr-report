@@ -1,10 +1,11 @@
 
 'use server';
 /**
- * @fileOverview A flow to enhance or modify images using Gemini 2.5 Flash Image.
+ * @fileOverview A flow to enhance or modify images using Gemini.
  */
 
 import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 
 const EnhanceImageInputSchema = z.object({
@@ -27,14 +28,15 @@ const enhanceImageFlow = ai.defineFlow(
     outputSchema: EnhanceImageOutputSchema,
   },
   async (input) => {
+    // Using gemini-1.5-flash for enhancement as it supports image input and has reliable quota
     const { media } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-image',
+      model: googleAI.model('gemini-1.5-flash'),
       prompt: [
         { media: { url: input.photoDataUri } },
-        { text: input.prompt },
+        { text: `Enhance this image according to these instructions: ${input.prompt}. Return only the modified image.` },
       ],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'],
+        responseModalities: ['IMAGE'],
       },
     });
 
