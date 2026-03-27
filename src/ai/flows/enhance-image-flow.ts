@@ -5,7 +5,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 
 const EnhanceImageInputSchema = z.object({
@@ -17,8 +16,8 @@ const EnhanceImageOutputSchema = z.object({
   enhancedPhotoDataUri: z.string().describe("The generated/enhanced image as a data URI."),
 });
 
-// Use stable identifier for image tasks
-const MODEL_ID = 'gemini-1.5-flash-latest';
+// Standard identifier for image tasks
+const MODEL_ID = 'googleai/gemini-1.5-flash';
 
 export async function enhanceImage(input: z.infer<typeof EnhanceImageInputSchema>) {
   return enhanceImageFlow(input);
@@ -32,7 +31,7 @@ const enhanceImageFlow = ai.defineFlow(
   },
   async (input) => {
     const { media } = await ai.generate({
-      model: googleAI.model(MODEL_ID),
+      model: MODEL_ID,
       prompt: [
         { media: { url: input.photoDataUri } },
         { text: `Enhance this image according to these instructions: ${input.prompt}. Return only the modified image.` },

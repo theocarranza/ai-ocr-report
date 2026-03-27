@@ -5,7 +5,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 
 const FileInputSchema = z.object({
@@ -36,8 +35,8 @@ const ProcessInsightsOutputSchema = z.object({
 export type ProcessInsightsInput = z.infer<typeof ProcessInsightsInputSchema>;
 export type ProcessInsightsOutput = z.infer<typeof ProcessInsightsOutputSchema>;
 
-// Use the -latest suffix to avoid 404s on specific API versions
-const MODEL_ID = 'gemini-1.5-flash-latest';
+// Using standard Genkit model identifier for stable v1beta access
+const MODEL_ID = 'googleai/gemini-1.5-flash';
 
 export async function processInsights(input: ProcessInsightsInput): Promise<ProcessInsightsOutput> {
   return processInsightsFlow(input);
@@ -56,7 +55,7 @@ const processInsightsFlow = ai.defineFlow(
     if (input.files && input.files.length > 0) {
       const ocrParts = input.files.map(f => ({ media: { url: f.dataUri } }));
       const { text } = await ai.generate({
-        model: googleAI.model(MODEL_ID),
+        model: MODEL_ID,
         prompt: [
           ...ocrParts,
           { text: "Extract all text from these documents. Preserve structure where possible." }
@@ -71,7 +70,7 @@ const processInsightsFlow = ai.defineFlow(
 
     // 2. Summary & Keywords
     const { output } = await ai.generate({
-      model: googleAI.model(MODEL_ID),
+      model: MODEL_ID,
       prompt: `Analyze the following text:
       
       TEXT:
