@@ -36,7 +36,7 @@ export type ProcessInsightsInput = z.infer<typeof ProcessInsightsInputSchema>;
 export type ProcessInsightsOutput = z.infer<typeof ProcessInsightsOutputSchema>;
 
 // Using the confirmed available Gemini 2.0 Flash model
-const MODEL_ID = 'googleai/gemini-2.0-flash';
+const MODEL_ID = 'googleai/gemini-2.5-flash';
 
 export async function processInsights(input: ProcessInsightsInput): Promise<ProcessInsightsOutput> {
   return processInsightsFlow(input);
