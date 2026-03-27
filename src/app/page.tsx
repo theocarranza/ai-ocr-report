@@ -12,21 +12,18 @@ import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, FileType, KeyRound as ApiKeyIcon, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-// import { enhanceImage } from '@/ai/flows/enhance-image-flow';
+import { enhanceImage } from '@/ai/flows/enhance-image-flow';
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
 
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore, addDoc, collection, serverTimestamp, type Firestore } from 'firebase/firestore';
 
-
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
 interface KeywordValuesEntry { keyword: string; foundValues: string[]; }
 interface ExtractKeywordValuesOutput { extractedKeywordEntries: KeywordValuesEntry[]; }
-
 
 export default function Home() {
   const { t } = useTranslation();
@@ -85,7 +82,6 @@ export default function Home() {
       setKeywordHistory(JSON.parse(storedHistory));
     }
     
-    // Automatically initialize the SDK if the key is in the environment
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (apiKey) {
       initializeAiSdk(apiKey);
@@ -198,7 +194,6 @@ export default function Home() {
     let filesToProcess = [...selectedFiles];
 
     // --- Image Enhancement Step ---
-    /*
     if (targetFileForEnhancement && enhancementTags.length > 0) {
       const fileToEnhance = filesToProcess.find(f => f.name === targetFileForEnhancement);
       if (fileToEnhance) {
@@ -230,8 +225,6 @@ export default function Home() {
         }
       }
     }
-    */
-
 
     const safetySettings = [ 
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -240,9 +233,9 @@ export default function Home() {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
     ];
     
-    const visionModel = genAI.getGenerativeModel({ model: "gemini-1.0-pro-vision-latest", safetySettings });
-    const textModel = genAI.getGenerativeModel({ model: "gemini-1.0-pro-latest", safetySettings });
-
+    // Using 2.0 Flash as a robust modern fallback per instructions
+    const visionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", safetySettings });
+    const textModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", safetySettings });
 
     if (filesToProcess.length > 0) {
       currentInputSource = "file_upload";
@@ -252,20 +245,13 @@ export default function Home() {
       });
       
       const imageFileParts: Part[] = [];
-      const promptForOcr = "Extract all text from the following image(s). If there are multiple images, provide the extracted text for each, clearly indicating which text belongs to which file if possible based on the input order.";
+      const promptForOcr = "Extract all text from the following image(s). Provide the extracted text for each file.";
       
       for (const file of filesToProcess) {
         currentFileNamesProcessed.push(file.name);
         if (file.type.startsWith("image/")) {
           const part = await fileToGenerativePart(file);
           imageFileParts.push(part);
-        } else {
-          combinedTextContent += (combinedTextContent ? "\n\n" : "") + `--- START OF FILE: ${file.name} ---\n[Text extraction for ${file.type} files is handled separately or not supported by this image OCR method.]\n--- END OF FILE: ${file.name} ---`;
-          toast({
-            title: `File type not an image`,
-            description: `${file.name} (${file.type}) will be skipped for direct Gemini OCR. Only images are currently supported.`,
-            variant: "default"
-          });
         }
       }
 
@@ -284,14 +270,12 @@ export default function Home() {
             description: error instanceof Error ? error.message : "Failed to extract text using Gemini.",
             variant: "destructive",
           });
-           combinedTextContent += (combinedTextContent ? "\n\n" : "") + "[Text extraction from one or more images failed.]";
         }
       }
     }
 
     if (manualText.trim()) {
-      const trimmedManualText = manualText.trim();
-      combinedTextContent += (combinedTextContent ? "\n\n" : "") + trimmedManualText;
+      combinedTextContent += (combinedTextContent ? "\n\n" : "") + manualText.trim();
       currentInputSource = currentInputSource === "file_upload" ? "file_and_manual_paste" : "manual_paste";
     }
     
@@ -322,16 +306,12 @@ export default function Home() {
     updateKeywordHistory(userKeywordsArray);
 
     try {
-      
-      const summaryPrompt = `Summarize the following text concisely, focusing on the main points and any actionable information. The text might be from one or more documents or manually pasted content. Text: "${combinedTextContent}"`;
+      const summaryPrompt = `Summarize the following text concisely: "${combinedTextContent}"`;
       const summaryResultObj = await textModel.generateContent(summaryPrompt);
       const summaryResponse = await summaryResultObj.response;
       setSummaryResult({ summary: summaryResponse.text() || t('summaryNotAvailable') });
 
-      const enrichmentPrompt = `Based on the following text and the provided keywords, suggest 3-5 additional relevant keywords that would be useful for further analysis or search.
-Text: "${combinedTextContent}"
-Original Keywords: ${userKeywordsArray.join(", ")}
-Suggested Keywords (provide a comma-separated list, only the list itself):`;
+      const enrichmentPrompt = `Based on the following text, suggest 3-5 additional relevant keywords: "${combinedTextContent}"`;
       const enrichmentResultObj = await textModel.generateContent(enrichmentPrompt);
       const enrichmentResponse = await enrichmentResultObj.response;
       const suggestedKeywords = enrichmentResponse.text() ? enrichmentResponse.text().split(',').map(kw => kw.trim()).filter(Boolean) : [];
@@ -347,68 +327,31 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
       setFoundKeywordsInText(foundKws);
       
       const extractedEntries: KeywordValuesEntry[] = [];
-      if (foundKws.length > 0) {
-        const valueExtractionPrompt = `For each of the following keywords, extract any associated values or relevant phrases found in the text. 
-        Keywords: ${foundKws.join(", ")}. 
-        Text: "${combinedTextContent}".
-        Respond in a JSON format like: {"keyword1": ["value1", "value2"], "keyword2": ["valueA"]}. If a keyword is present but no specific values are found, return an empty array for it.`;
-        
-        try {
-          const valueResultObj = await textModel.generateContent(valueExtractionPrompt);
-          const valueResponse = await valueResultObj.response;
-          let textResponse = valueResponse.text();
-
-          let parsedValues: Record<string, string[]> = {};
-          try {
-            // Remove markdown code blocks if present
-            const cleanJsonText = textResponse.replace(/```json\n?|\n?```/g, "").trim();
-            parsedValues = JSON.parse(cleanJsonText);
-          } catch (jsonError) {
-             console.error("Failed to parse keyword values JSON from Gemini:", jsonError);
-             console.warn("Raw response that failed parsing:", textResponse);
-            for (const kw of foundKws) {
-              const directQuestionPrompt = `What are the values or phrases associated with the keyword "${kw}" in the following text? List them. If none, say "None found". Text: "${combinedTextContent}"`;
-              const kwResult = await textModel.generateContent(directQuestionPrompt);
-              const kwResponse = await kwResult.response;
-              const kwText = kwResponse.text();
-              if (kwText && !kwText.toLowerCase().includes("none found")) {
-                parsedValues[kw] = kwText.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
-              } else {
-                parsedValues[kw] = [];
-              }
+      for (const kw of userKeywordsArray) {
+        if (foundKws.includes(kw)) {
+            const valueExtractionPrompt = `Extract values for "${kw}" from: "${combinedTextContent}". Return a simple JSON array of strings.`;
+            try {
+                const valResult = await textModel.generateContent(valueExtractionPrompt);
+                const valResponse = await valResult.response;
+                const text = valResponse.text().replace(/```json\n?|\n?```/g, "").trim();
+                const foundValues = JSON.parse(text);
+                extractedEntries.push({ keyword: kw, foundValues: Array.isArray(foundValues) ? foundValues : [foundValues] });
+            } catch {
+                extractedEntries.push({ keyword: kw, foundValues: [] });
             }
-          }
-          
-          userKeywordsArray.forEach(kw => {
-            extractedEntries.push({
-              keyword: kw,
-              foundValues: parsedValues[kw] || [] 
-            });
-          });
-
-        } catch (valError) {
-          console.error(`Error extracting values for keywords:`, valError);
-           userKeywordsArray.forEach(kw => {
-            extractedEntries.push({
-              keyword: kw,
-              foundValues: foundKws.includes(kw) ? [t('noValuesFoundForKeyword')] : []
-            });
-          });
+        } else {
+            extractedEntries.push({ keyword: kw, foundValues: [] });
         }
-      } else {
-         userKeywordsArray.forEach(kw => {
-          extractedEntries.push({ keyword: kw, foundValues: [] });
-        });
       }
       setKeywordValueMapResult({ extractedKeywordEntries: extractedEntries });
 
       toast({
         title: t('toastProcessingCompleteTitle'),
-        description: "AI processing complete using Google AI SDK.",
+        description: "AI processing complete.",
       });
 
     } catch (error) {
-      console.error("Google AI SDK error during analysis:", error);
+      console.error("AI error during analysis:", error);
       toast({
         title: t('toastInsightGenerationErrorTitle'),
         description: error instanceof Error ? error.message : t('toastInsightGenerationErrorDescription'),
@@ -421,12 +364,9 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
 
   const handleSaveReportToFirestore = async (reportData: any) => {
     toast({ title: t('toastSavingTitle'), description: t('toastSavingDescription') });
-
-    let appInstance = firebaseApp;
     let dbInstance = firestore;
-
-    if (!appInstance || !dbInstance) {
-      const firebaseConfigValues = {
+    if (!dbInstance) {
+      const firebaseConfig = {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -434,75 +374,26 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
         messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
       };
-
-      if (!firebaseConfigValues.apiKey || !firebaseConfigValues.projectId) {
-        console.error("Firebase config is missing or uses placeholder values in environment variables.");
-        toast({
-          title: t('toastFirebaseConfigMissingTitle'),
-          description: t('toastFirebaseConfigMissingDescription'),
-          variant: "destructive",
-        });
-        return;
-      }
-
+      if (!firebaseConfig.apiKey) return;
       try {
-        appInstance = initializeApp(firebaseConfigValues);
-        dbInstance = getFirestore(appInstance);
-        setFirebaseApp(appInstance);
+        const app = initializeApp(firebaseConfig);
+        dbInstance = getFirestore(app);
+        setFirebaseApp(app);
         setFirestore(dbInstance);
       } catch (error) {
-        console.error("Error initializing Firebase:", error);
-        toast({
-          title: t('toastSaveErrorTitle'),
-          description: error instanceof Error ? error.message : t('toastFirebaseConfigMissingDescription'),
-          variant: "destructive",
-        });
+        console.error("Firebase error:", error);
         return;
       }
     }
-
-    if (!dbInstance) {
-        toast({ title: t('toastSaveErrorTitle'), description: "Firestore not initialized.", variant: "destructive" });
-        return;
-    }
-
+    if (!dbInstance) return;
     try {
-      await addDoc(collection(dbInstance, "reports"), {
-        ...reportData,
-        createdAt: serverTimestamp(),
-      });
+      await addDoc(collection(dbInstance, "reports"), { ...reportData, createdAt: serverTimestamp() });
       toast({ title: t('toastSaveSuccessTitle'), description: t('toastSaveSuccessDescription') });
     } catch (error) {
-      console.error("Error saving to Firestore:", error);
-      toast({
-        title: t('toastSaveErrorTitle'),
-        description: error instanceof Error ? error.message : "Failed to save report to Firestore.",
-        variant: "destructive",
-      });
+      console.error("Firestore save error:", error);
     }
   };
 
-  const handleListModels = async () => {
-    if (!genAI) {
-      toast({ title: "API Key needed", description: "Please provide an API key first.", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Listing Models", description: "Check the developer console for the list of available models." });
-    try {
-      // @ts-ignore - internal method for debugging
-      const models = await genAI.getGenerativeModel({model: ""}).listModels();
-      console.log("--- Available Generative AI Models ---");
-      for await (const model of models) {
-        console.log(model);
-      }
-      console.log("------------------------------------");
-      toast({ title: "Success", description: "Model list has been logged to the console." });
-    } catch(e) {
-      console.error("Could not list models:", e);
-      toast({ title: "Error", description: "Could not list models. See console for error.", variant: "destructive" });
-    }
-  }
-  
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
   const imageFiles = selectedFiles.filter(f => f.type.startsWith("image/"));
@@ -514,12 +405,8 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           <div className="inline-flex items-center justify-center p-3 bg-primary rounded-full mb-4 shadow-md">
             <FileType className="h-10 w-10 text-primary-foreground" />
           </div>
-          <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
-            {t('pageTitle')}
-          </h1>
-          <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-            {t('pageSubtitle')}
-          </p>
+          <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">{t('pageTitle')}</h1>
+          <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">{t('pageSubtitle')}</p>
         </header>
 
         <main className="space-y-8 max-w-4xl mx-auto">
@@ -527,16 +414,9 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
              <Alert variant="destructive">
                 <ApiKeyIcon className="h-4 w-4" />
                 <AlertTitle>{t('toastApiKeyInitErrorTitle')}</AlertTitle>
-                <AlertDescription>
-                  {t('toastApiKeyMissingDescription')}
-                </AlertDescription>
+                <AlertDescription>{t('toastApiKeyMissingDescription')}</AlertDescription>
               </Alert>
           )}
-
-          <div className="flex gap-4">
-            <Button onClick={handleListModels} variant="outline" className="w-full">List Available Models (for debugging)</Button>
-          </div>
-
 
           <FileInputArea 
             selectedFiles={selectedFiles}
@@ -547,45 +427,46 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
           />
 
           {imageFiles.length > 0 && (
-            <Card className="shadow-lg">
+            <Card className="shadow-lg border-2 border-accent/20">
               <CardHeader>
                 <CardTitle className="font-headline text-2xl flex items-center">
-                  <Wand2 className="mr-2 h-6 w-6 text-primary" /> Image Enhancement
+                  <Wand2 className="mr-2 h-6 w-6 text-accent" /> Image Enhancement
                 </CardTitle>
-                <CardDescription>Optionally, enhance one of your uploaded images before processing.</CardDescription>
+                <CardDescription>Optionally, select one image to be enhanced by AI before processing starts.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="target-file-enhancement">Image to Enhance</Label>
+                    <Label htmlFor="target-file-enhancement">Target Image</Label>
                     <select
                       id="target-file-enhancement"
                       value={targetFileForEnhancement}
                       onChange={(e) => setTargetFileForEnhancement(e.target.value)}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md border"
-                      disabled={imageFiles.length === 0}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-input bg-background focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md border"
                     >
-                      <option value="">-- Select an image --</option>
+                      <option value="">-- No enhancement --</option>
                       {imageFiles.map(file => (
                         <option key={file.name} value={file.name}>{file.name}</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <Label>Enhancement Tags</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {predefinedEnhancementTags.map(tag => (
-                        <Badge
-                          key={tag}
-                          variant={enhancementTags.includes(tag) ? 'default' : 'secondary'}
-                          onClick={() => handleToggleEnhancementTag(tag)}
-                          className="cursor-pointer"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
+                  {targetFileForEnhancement && (
+                    <div>
+                      <Label>Enhancement Features</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {predefinedEnhancementTags.map(tag => (
+                          <Badge
+                            key={tag}
+                            variant={enhancementTags.includes(tag) ? 'default' : 'secondary'}
+                            onClick={() => handleToggleEnhancementTag(tag)}
+                            className="cursor-pointer transition-all hover:scale-105"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -607,15 +488,9 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
               className="bg-destructive hover:bg-destructive/90 text-primary-foreground transition-all duration-300 ease-in-out transform hover:scale-105 shadow-2xl px-12 py-6 text-lg"
             >
               {processing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Processing...
-                </>
+                <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Processing...</>
               ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Process Data
-                </>
+                <><Sparkles className="mr-2 h-5 w-5" />Process Data</>
               )}
             </Button>
           </div>
@@ -642,5 +517,3 @@ Suggested Keywords (provide a comma-separated list, only the list itself):`;
     </div>
   );
 }
-
-    

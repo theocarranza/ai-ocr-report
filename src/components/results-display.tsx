@@ -7,9 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Download, Database, CheckCircle, Info, ListChecks, FileJson, Search, KeyRound } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { SummarizeFileContentOutput } from '@/ai/flows/summarize-file-content';
-import type { EnrichKeywordsOutput } from '@/ai/flows/keyword-enrichment';
-import type { KeywordValuesEntry as ExtractedKeywordEntry } from '@/ai/flows/extract-keyword-values-flow';
+
+interface SummarizeFileContentOutput {
+  summary: string;
+}
+
+interface EnrichKeywordsOutput {
+  suggestedKeywords: string[];
+}
+
+interface KeywordValuesEntry {
+  keyword: string;
+  foundValues: string[];
+}
+
+type ExtractedKeywordEntry = KeywordValuesEntry;
 
 
 interface ResultsDisplayProps {
