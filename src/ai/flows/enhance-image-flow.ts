@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A flow to enhance or modify images using Gemini.
+ * @fileOverview A flow to enhance or modify images using the confirmed available Gemini 2.5 Flash Image model.
  */
 
 import { ai } from '@/ai/genkit';
@@ -16,8 +16,8 @@ const EnhanceImageOutputSchema = z.object({
   enhancedPhotoDataUri: z.string().describe("The generated/enhanced image as a data URI."),
 });
 
-// Standard identifier for image tasks
-const MODEL_ID = 'googleai/gemini-1.5-flash';
+// Using the confirmed available Nano Banana model for image generation tasks
+const MODEL_ID = 'googleai/gemini-2.5-flash-image';
 
 export async function enhanceImage(input: z.infer<typeof EnhanceImageInputSchema>) {
   return enhanceImageFlow(input);
@@ -37,7 +37,7 @@ const enhanceImageFlow = ai.defineFlow(
         { text: `Enhance this image according to these instructions: ${input.prompt}. Return only the modified image.` },
       ],
       config: {
-        responseModalities: ['IMAGE'],
+        responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
