@@ -133,15 +133,24 @@ export default function Home() {
       if (targetFileForEnhancement && enhancementTags.length > 0) {
         const fileToEnhance = filesToProcess.find(f => f.name === targetFileForEnhancement);
         if (fileToEnhance) {
-          toast({ title: "Enhancing Image...", description: `Applying enhancements to ${fileToEnhance.name}` });
-          const dataUrl = await fileToDataUri(fileToEnhance);
-          const result = await enhanceImage({
-            photoDataUri: dataUrl,
-            prompt: enhancementTags.join(', '),
-          });
-          const newFile = dataURLtoFile(result.enhancedPhotoDataUri, `enhanced_${fileToEnhance.name}`);
-          filesToProcess = filesToProcess.map(f => f.name === fileToEnhance.name ? newFile : f);
-          toast({ title: "Image Enhanced", description: "Enhancement applied successfully." });
+          try {
+            toast({ title: "Enhancing Image...", description: `Applying enhancements to ${fileToEnhance.name}` });
+            const dataUrl = await fileToDataUri(fileToEnhance);
+            const result = await enhanceImage({
+              photoDataUri: dataUrl,
+              prompt: enhancementTags.join(', '),
+            });
+            const newFile = dataURLtoFile(result.enhancedPhotoDataUri, `enhanced_${fileToEnhance.name}`);
+            filesToProcess = filesToProcess.map(f => f.name === fileToEnhance.name ? newFile : f);
+            toast({ title: "Image Enhanced", description: "Enhancement applied successfully." });
+          } catch (enhancementError) {
+            console.error("Enhancement failed, proceeding with original:", enhancementError);
+            toast({
+              title: "Enhancement Skipped",
+              description: "AI enhancement limit reached. Proceeding with the original image.",
+              variant: "destructive",
+            });
+          }
         }
       }
 
