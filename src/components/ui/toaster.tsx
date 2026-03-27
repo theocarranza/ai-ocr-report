@@ -19,11 +19,12 @@ export function Toaster() {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
-        toast({ title: "Copied!", description: "Error message copied to clipboard." });
+        toast({ title: "Copiado!", description: "Mensagem de erro copiada para a área de transferência." });
       } else {
         throw new Error("Clipboard API not available");
       }
     } catch (err) {
+      // Fallback: Use a hidden textarea and document.execCommand
       const textArea = document.createElement("textarea");
       textArea.value = text;
       textArea.style.position = "fixed";
@@ -35,15 +36,15 @@ export function Toaster() {
       try {
         const successful = document.execCommand('copy');
         if (successful) {
-          toast({ title: "Copied!", description: "Error message copied to clipboard." });
+          toast({ title: "Copiado!", description: "Mensagem de erro copiada (fallback)." });
         } else {
           throw new Error("Copy command unsuccessful");
         }
       } catch (fallbackErr) {
         console.error("Copy failed", fallbackErr);
         toast({ 
-          title: "Copy Failed", 
-          description: "Clipboard access is restricted. Please manually select and copy the text.",
+          title: "Falha ao Copiar", 
+          description: "O acesso à área de transferência foi negado. Selecione o texto manualmente.",
           variant: "destructive"
         });
       }
