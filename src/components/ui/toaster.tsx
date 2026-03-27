@@ -1,9 +1,11 @@
+
 "use client"
 
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
   ToastClose,
+  ToastCopy,
   ToastDescription,
   ToastProvider,
   ToastTitle,
@@ -11,11 +13,11 @@ import {
 } from "@/components/ui/toast"
 
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts, toast } = useToast()
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({ id, title, description, action, copyText, ...props }) {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
@@ -25,6 +27,14 @@ export function Toaster() {
               )}
             </div>
             {action}
+            {copyText && (
+              <ToastCopy 
+                onClick={() => {
+                  navigator.clipboard.writeText(copyText);
+                  toast({ title: "Copied!", description: "Error message copied to clipboard." });
+                }} 
+              />
+            )}
             <ToastClose />
           </Toast>
         )

@@ -10,11 +10,10 @@ import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, FileType, Wand2, Copy } from 'lucide-react';
+import { Loader2, Sparkles, FileType, Wand2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { enhanceImage } from '@/ai/flows/enhance-image-flow';
 import { processInsights } from '@/ai/flows/process-insights-flow';
-import { ToastAction } from "@/components/ui/toast";
 
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
@@ -191,17 +190,7 @@ export default function Home() {
         title: t('toastInsightGenerationErrorTitle'),
         description: errorMessage,
         variant: "destructive",
-        action: (
-          <ToastAction 
-            altText="Copy error" 
-            onClick={() => {
-              navigator.clipboard.writeText(errorMessage);
-              toast({ title: "Copied!", description: "Error message copied to clipboard." });
-            }}
-          >
-            <Copy className="h-4 w-4 mr-2" /> Copy
-          </ToastAction>
-        ),
+        copyText: errorMessage,
       });
     } finally {
       setProcessing(false);
