@@ -17,6 +17,9 @@ const EnhanceImageOutputSchema = z.object({
   enhancedPhotoDataUri: z.string().describe("The generated/enhanced image as a data URI."),
 });
 
+// Use stable identifier for image tasks
+const MODEL_ID = 'gemini-1.5-flash-latest';
+
 export async function enhanceImage(input: z.infer<typeof EnhanceImageInputSchema>) {
   return enhanceImageFlow(input);
 }
@@ -28,9 +31,8 @@ const enhanceImageFlow = ai.defineFlow(
     outputSchema: EnhanceImageOutputSchema,
   },
   async (input) => {
-    // Using gemini-1.5-flash for enhancement as it supports image input and has reliable quota
     const { media } = await ai.generate({
-      model: googleAI.model('gemini-1.5-flash'),
+      model: googleAI.model(MODEL_ID),
       prompt: [
         { media: { url: input.photoDataUri } },
         { text: `Enhance this image according to these instructions: ${input.prompt}. Return only the modified image.` },

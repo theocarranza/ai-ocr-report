@@ -10,10 +10,11 @@ import { FileInputArea } from '@/components/file-input-area';
 import { KeywordEntry } from '@/components/keyword-entry';
 import { ResultsDisplay } from '@/components/results-display';
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, FileType, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, FileType, Wand2, Terminal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { enhanceImage } from '@/ai/flows/enhance-image-flow';
 import { processInsights } from '@/ai/flows/process-insights-flow';
+import { listAvailableModels } from '@/ai/flows/diagnostics-flow';
 
 interface SummarizeOutput { summary: string; }
 interface EnrichKeywordsOutput { suggestedKeywords: string[]; }
@@ -118,6 +119,23 @@ export default function Home() {
     return new File([u8arr], filename, {type:mime});
   }
 
+  const handleListModels = async () => {
+    try {
+      toast({ title: "Checking Models...", description: "Fetching list of available AI models." });
+      const result = await listAvailableModels();
+      console.log("AVAILABLE MODELS:", result.models);
+      console.log("RAW RESPONSE:", result.raw);
+      toast({ 
+        title: "Models Listed", 
+        description: `Found ${result.models.length} models. Check browser console for full list.` 
+      });
+    } catch (error) {
+      console.error("Failed to list models:", error);
+      const msg = error instanceof Error ? error.message : "Check console for details.";
+      toast({ title: "Diagnostic Error", description: msg, variant: "destructive", copyText: msg });
+    }
+  };
+
   const handleProcess = async () => {
     setProcessing(true);
     setSummaryResult(null);
@@ -147,8 +165,9 @@ export default function Home() {
             console.error("Enhancement failed, proceeding with original:", enhancementError);
             toast({
               title: "Enhancement Skipped",
-              description: "AI enhancement limit reached. Proceeding with the original image.",
+              description: "Model limit or 404 encountered. Proceeding with the original image.",
               variant: "destructive",
+              copyText: enhancementError instanceof Error ? enhancementError.message : "Unknown error"
             });
           }
         }
@@ -197,10 +216,6 @@ export default function Home() {
     }
   };
 
-  const handleSaveReportToFirestore = async (reportData: any) => {
-    toast({ title: t('toastFeatureNotImplementedTitle'), description: t('toastFeatureNotImplementedDescription') });
-  };
-
   const userKeywordsArray = keywords.split(',').map(kw => kw.trim()).filter(kw => kw);
   const showResults = summaryResult || enrichedKeywordsResult || keywordValueMapResult || foundKeywordsInText.length > 0 || (processing === false && finalProcessedTextForOutput !== "");
   const imageFiles = selectedFiles.filter(f => f.type.startsWith("image/"));
@@ -208,7 +223,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 md:px-8 md:py-12">
-        <header className="mb-10 text-center">
+        <header className="mb-10 text-center relative">
+          <div className="absolute top-0 right-0">
+             <Button variant="ghost" size="sm" onClick={handleListModels} className="text-muted-foreground opacity-50 hover:opacity-100">
+               <Terminal className="mr-2 h-4 w-4" /> Debug Models
+             </Button>
+          </div>
           <div className="inline-flex items-center justify-center p-3 bg-primary rounded-full mb-4 shadow-md">
             <FileType className="h-10 w-10 text-primary-foreground" />
           </div>
@@ -304,7 +324,7 @@ export default function Home() {
               fullExtractedTextForOutput={finalProcessedTextForOutput}
               source={inputSource}
               filesProcessed={processedFileNames}
-              onSaveReport={handleSaveReportToFirestore}
+              onSaveReport={() => {}}
             />
           )}
         </main>
