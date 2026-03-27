@@ -17,7 +17,6 @@ export function Toaster() {
 
   const handleCopy = async (text: string) => {
     try {
-      // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
         toast({ title: "Copied!", description: "Error message copied to clipboard." });
@@ -25,7 +24,6 @@ export function Toaster() {
         throw new Error("Clipboard API not available");
       }
     } catch (err) {
-      // Fallback for permission policy blocks or older browsers
       const textArea = document.createElement("textarea");
       textArea.value = text;
       textArea.style.position = "fixed";
@@ -67,7 +65,10 @@ export function Toaster() {
             {action}
             {copyText && (
               <ToastCopy 
-                onClick={() => handleCopy(copyText)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(copyText);
+                }}
                 aria-label="Copy error message"
               />
             )}
